@@ -1,0 +1,11 @@
+[gd_scene format=3 uid="uid://br8tnc7x2vp01"]
+
+[ext_resource type="Script" path="res://effects/LaserAttackEffect.gd" id="1_laserScript"]
+[ext_resource type="AudioStream" path="res://assets/sounds/laser_attack01.mp3" id="2_laserSFX"]
+
+[node name="LaserAttackEffect" type="Node2D"]
+z_index = 5
+script = ExtResource("1_laserScript")
+
+[node name="SFX" type="AudioStreamPlayer2D" parent="."]
+stream = ExtResource("2_laserSFX")

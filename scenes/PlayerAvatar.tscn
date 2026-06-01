@@ -1,0 +1,68 @@
+[gd_scene format=3 uid="uid://bcn4uej0ai7do"]
+
+[ext_resource type="Script" path="res://scenes/PlayerAvatar.gd" id="1_avatarScript"]
+
+[sub_resource type="Shader" id="Shader_glow"]
+code = "shader_type canvas_item;\nuniform vec4 glow_color : source_color = vec4(0.05, 0.4, 1.0, 1.0);\n\nvoid fragment() {\n\tvec2 uv = UV * 2.0 - 1.0;\n\tfloat dist = length(uv);\n\tfloat ring_dist = abs(dist - 0.78);\n\tfloat glow = exp(-ring_dist * ring_dist * 35.0) * 0.95;\n\tfloat outer = 1.0 - smoothstep(0.9, 1.02, dist);\n\tCOLOR = vec4(glow_color.rgb, glow * outer);\n}\n"
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_glow"]
+shader = SubResource("Shader_glow")
+shader_parameter/glow_color = Color(0.05, 0.4, 1.0, 1.0)
+
+[sub_resource type="Shader" id="Shader_avatar"]
+code = "shader_type canvas_item;\n\nvoid fragment() {\n\tvec2 uv = UV * 2.0 - 1.0;\n\tfloat dist = length(uv);\n\tfloat alpha = 1.0 - smoothstep(0.88, 0.96, dist);\n\tCOLOR = texture(TEXTURE, UV);\n\tCOLOR.a *= alpha;\n}\n"
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_avatar"]
+shader = SubResource("Shader_avatar")
+
+[sub_resource type="PlaceholderTexture2D" id="PlaceholderTexture2D_glow"]
+size = Vector2(160, 160)
+
+[sub_resource type="PlaceholderTexture2D" id="PlaceholderTexture2D_avatar"]
+size = Vector2(128, 128)
+
+[node name="PlayerAvatar" type="Node2D"]
+script = ExtResource("1_avatarScript")
+
+[node name="HTTPRequest" type="HTTPRequest" parent="."]
+use_threads = true
+
+[node name="FloatPivot" type="Node2D" parent="."]
+scale = Vector2(0.22, 0.22)
+
+[node name="GlowSprite" type="Sprite2D" parent="FloatPivot"]
+material = SubResource("ShaderMaterial_glow")
+texture = SubResource("PlaceholderTexture2D_glow")
+
+[node name="AvatarSprite" type="Sprite2D" parent="FloatPivot"]
+material = SubResource("ShaderMaterial_avatar")
+texture = SubResource("PlaceholderTexture2D_avatar")
+
+[node name="HPBarRoot" type="Node2D" parent="."]
+position = Vector2(0, -18)
+
+[node name="HPBarBG" type="ColorRect" parent="HPBarRoot"]
+offset_left = -12.0
+offset_top = -1.5
+offset_right = 12.0
+offset_bottom = 1.5
+color = Color(0.08, 0.08, 0.08, 0.85)
+
+[node name="HPBarFill" type="ColorRect" parent="HPBarRoot"]
+offset_left = -12.0
+offset_top = -1.5
+offset_right = 12.0
+offset_bottom = 1.5
+color = Color(0.15, 0.88, 0.15, 1.0)
+
+[node name="UsernameLabel" type="Label" parent="."]
+offset_left = -24.0
+offset_top = 15.0
+offset_right = 24.0
+offset_bottom = 23.0
+horizontal_alignment = 1
+text_overrun_behavior = 3
+theme_override_font_sizes/font_size = 8
+theme_override_colors/font_color = Color(1.0, 1.0, 1.0, 0.85)
+theme_override_colors/font_outline_color = Color(0.0, 0.0, 0.0, 0.85)
+theme_override_constants/outline_size = 1

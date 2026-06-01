@@ -1,0 +1,11 @@
+[gd_scene format=3 uid="uid://bj5ms4qmawfh6"]
+
+[ext_resource type="Script" path="res://effects/LightningAttackEffect.gd" id="1_lightningScript"]
+[ext_resource type="AudioStream" path="res://assets/sounds/thunder_attack01.wav" id="2_thunderSFX"]
+
+[node name="LightningAttackEffect" type="Node2D"]
+z_index = 5
+script = ExtResource("1_lightningScript")
+
+[node name="SFX" type="AudioStreamPlayer2D" parent="."]
+stream = ExtResource("2_thunderSFX")

@@ -1,0 +1,111 @@
+[gd_scene format=3 uid="uid://ce8xkaqlf20vp"]
+
+[ext_resource type="Script" path="res://scenes/UILayer.gd" id="1_uiScript"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_timer"]
+bg_color = Color(0.0, 0.0, 0.0, 0.75)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.5, 0.8, 1.0, 0.9)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+content_margin_left = 20.0
+content_margin_top = 8.0
+content_margin_right = 20.0
+content_margin_bottom = 8.0
+
+[node name="UILayer" type="CanvasLayer"]
+layer = 10
+script = ExtResource("1_uiScript")
+
+[node name="ScoreA" type="Label" parent="."]
+anchor_right = 0.5
+offset_left = 60.0
+offset_top = 20.0
+offset_right = -60.0
+offset_bottom = 140.0
+text = "0"
+horizontal_alignment = 1
+theme_override_font_sizes/font_size = 96
+theme_override_colors/font_color = Color(0.3, 0.6, 1.0, 1.0)
+theme_override_colors/font_outline_color = Color(0.0, 0.1, 0.3, 1.0)
+theme_override_colors/font_shadow_color = Color(0.0, 0.35, 1.0, 0.7)
+theme_override_constants/outline_size = 2
+theme_override_constants/shadow_offset_x = 0
+theme_override_constants/shadow_offset_y = 0
+theme_override_constants/shadow_outline_size = 8
+
+[node name="ScoreB" type="Label" parent="."]
+anchor_left = 0.5
+anchor_right = 1.0
+offset_left = 60.0
+offset_top = 20.0
+offset_right = -60.0
+offset_bottom = 140.0
+text = "0"
+horizontal_alignment = 1
+theme_override_font_sizes/font_size = 96
+theme_override_colors/font_color = Color(1.0, 0.25, 0.08, 1.0)
+theme_override_colors/font_outline_color = Color(0.3, 0.05, 0.0, 1.0)
+theme_override_colors/font_shadow_color = Color(1.0, 0.1, 0.0, 0.7)
+theme_override_constants/outline_size = 2
+theme_override_constants/shadow_offset_x = 0
+theme_override_constants/shadow_offset_y = 0
+theme_override_constants/shadow_outline_size = 8
+
+[node name="TimerPanel" type="Panel" parent="."]
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -150.0
+offset_top = 20.0
+offset_right = 150.0
+offset_bottom = 95.0
+theme_override_styles/panel = SubResource("StyleBoxFlat_timer")
+
+[node name="TimerLabel" type="Label" parent="TimerPanel"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+text = "2:00"
+horizontal_alignment = 1
+vertical_alignment = 1
+theme_override_font_sizes/font_size = 48
+theme_override_colors/font_color = Color(0.9, 0.95, 1.0, 1.0)
+theme_override_colors/font_shadow_color = Color(0.4, 0.8, 1.0, 0.6)
+theme_override_constants/shadow_offset_x = 0
+theme_override_constants/shadow_offset_y = 0
+theme_override_constants/shadow_outline_size = 4
+
+[node name="TeamALabel" type="Label" parent="."]
+anchor_right = 0.5
+offset_left = 60.0
+offset_top = 140.0
+offset_right = -60.0
+offset_bottom = 185.0
+text = "TEAM A"
+horizontal_alignment = 1
+theme_override_font_sizes/font_size = 28
+theme_override_colors/font_color = Color(0.35, 0.65, 1.0, 0.85)
+theme_override_colors/font_shadow_color = Color(0.0, 0.35, 1.0, 0.5)
+theme_override_constants/shadow_offset_x = 0
+theme_override_constants/shadow_offset_y = 0
+theme_override_constants/shadow_outline_size = 4
+
+[node name="TeamBLabel" type="Label" parent="."]
+anchor_left = 0.5
+anchor_right = 1.0
+offset_left = 60.0
+offset_top = 140.0
+offset_right = -60.0
+offset_bottom = 185.0
+text = "TEAM B"
+horizontal_alignment = 1
+theme_override_font_sizes/font_size = 28
+theme_override_colors/font_color = Color(1.0, 0.28, 0.08, 0.85)
+theme_override_colors/font_shadow_color = Color(1.0, 0.1, 0.0, 0.5)
+theme_override_constants/shadow_offset_x = 0
+theme_override_constants/shadow_offset_y = 0
+theme_override_constants/shadow_outline_size = 4

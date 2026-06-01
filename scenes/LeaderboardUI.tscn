@@ -1,0 +1,7 @@
+[gd_scene format=3 uid="uid://c5leaderui001"]
+
+[ext_resource type="Script" path="res://scenes/LeaderboardUI.gd" id="1_script"]
+
+[node name="LeaderboardUI" type="CanvasLayer"]
+layer = 3
+script = ExtResource("1_script")

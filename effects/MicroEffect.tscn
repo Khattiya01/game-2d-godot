@@ -1,0 +1,44 @@
+[gd_scene format=3 uid="uid://b7h6fx2r4mkqa"]
+
+[ext_resource type="Script" path="res://effects/MicroEffect.gd" id="1_effectScript"]
+
+[sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_add"]
+blend_mode = 1
+
+[sub_resource type="Gradient" id="Gradient_burst"]
+offsets = PackedFloat32Array(0.0, 0.4, 1.0)
+colors = PackedColorArray(1.0, 0.95, 0.5, 1.0, 0.5, 1.0, 0.9, 0.8, 0.3, 0.8, 1.0, 0.0)
+
+[sub_resource type="GradientTexture1D" id="GradientTexture1D_burst"]
+gradient = SubResource("Gradient_burst")
+width = 64
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_burst"]
+direction = Vector3(0.0, -1.0, 0.0)
+spread = 180.0
+gravity = Vector3(0.0, 60.0, 0.0)
+initial_velocity_min = 40.0
+initial_velocity_max = 110.0
+angular_velocity_min = -180.0
+angular_velocity_max = 180.0
+scale_min = 0.3
+scale_max = 0.8
+color_ramp = SubResource("GradientTexture1D_burst")
+
+[sub_resource type="QuadMesh" id="QuadMesh_burst"]
+size = Vector2(5.0, 5.0)
+
+[node name="MicroEffect" type="Node2D"]
+z_index = 4
+script = ExtResource("1_effectScript")
+
+[node name="BurstParticles" type="GPUParticles2D" parent="."]
+material = SubResource("CanvasItemMaterial_add")
+amount = 30
+lifetime = 0.55
+explosiveness = 1.0
+randomness = 0.2
+one_shot = true
+emitting = false
+process_material = SubResource("ParticleProcessMaterial_burst")
+draw_pass_1 = SubResource("QuadMesh_burst")

@@ -1,0 +1,6 @@
+[gd_scene format=3 uid="uid://bx7kpnd2v3qhm"]
+
+[ext_resource type="Script" path="res://scenes/Boss.gd" id="1_bossScript"]
+
+[node name="Boss" type="Node2D"]
+script = ExtResource("1_bossScript")

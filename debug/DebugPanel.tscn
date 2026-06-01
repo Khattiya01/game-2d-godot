@@ -1,0 +1,315 @@
+[gd_scene format=3 uid="uid://cp6j31pyjcp2w"]
+
+[ext_resource type="Script" path="res://debug/DebugPanel.gd" id="1_debugScript"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_panel"]
+bg_color = Color(0.03, 0.04, 0.08, 0.93)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.2, 0.88, 0.42, 0.7)
+corner_radius_top_left = 5
+corner_radius_top_right = 5
+corner_radius_bottom_right = 5
+corner_radius_bottom_left = 5
+content_margin_left = 10.0
+content_margin_top = 8.0
+content_margin_right = 10.0
+content_margin_bottom = 10.0
+
+[node name="DebugPanel" type="CanvasLayer"]
+layer = 100
+script = ExtResource("1_debugScript")
+
+[node name="PanelContainer" type="PanelContainer" parent="."]
+offset_left = 10.0
+offset_top = 10.0
+theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
+
+[node name="VBox" type="VBoxContainer" parent="PanelContainer"]
+custom_minimum_size = Vector2(218, 0)
+theme_override_constants/separation = 5
+
+[node name="Title" type="Label" parent="PanelContainer/VBox"]
+text = "⚙  DEBUG  [F1]"
+theme_override_font_sizes/font_size = 12
+theme_override_colors/font_color = Color(0.25, 0.95, 0.45, 0.9)
+
+[node name="Sep1" type="HSeparator" parent="PanelContainer/VBox"]
+modulate = Color(0.25, 0.9, 0.42, 0.45)
+
+[node name="SpawnRow" type="HBoxContainer" parent="PanelContainer/VBox"]
+theme_override_constants/separation = 4
+
+[node name="SpawnABtn" type="Button" parent="PanelContainer/VBox/SpawnRow"]
+custom_minimum_size = Vector2(0, 28)
+size_flags_horizontal = 3
+text = "Spawn A"
+theme_override_font_sizes/font_size = 12
+theme_override_colors/font_color = Color(0.4, 0.72, 1.0, 1.0)
+
+[node name="SpawnBBtn" type="Button" parent="PanelContainer/VBox/SpawnRow"]
+custom_minimum_size = Vector2(0, 28)
+size_flags_horizontal = 3
+text = "Spawn B"
+theme_override_font_sizes/font_size = 12
+theme_override_colors/font_color = Color(1.0, 0.4, 0.3, 1.0)
+
+[node name="GiftRow" type="HBoxContainer" parent="PanelContainer/VBox"]
+theme_override_constants/separation = 4
+
+[node name="RoseABtn" type="Button" parent="PanelContainer/VBox/GiftRow"]
+custom_minimum_size = Vector2(0, 28)
+size_flags_horizontal = 3
+text = "Rose A→B"
+theme_override_font_sizes/font_size = 12
+theme_override_colors/font_color = Color(1.0, 0.55, 0.75, 1.0)
+
+[node name="RoseBBtn" type="Button" parent="PanelContainer/VBox/GiftRow"]
+custom_minimum_size = Vector2(0, 28)
+size_flags_horizontal = 3
+text = "Rose B→A"
+theme_override_font_sizes/font_size = 12
+theme_override_colors/font_color = Color(1.0, 0.55, 0.75, 1.0)
+
+[node name="UltRow" type="HBoxContainer" parent="PanelContainer/VBox"]
+theme_override_constants/separation = 4
+
+[node name="UltimateABtn" type="Button" parent="PanelContainer/VBox/UltRow"]
+custom_minimum_size = Vector2(0, 30)
+size_flags_horizontal = 3
+text = "★ Ult A"
+theme_override_font_sizes/font_size = 12
+theme_override_colors/font_color = Color(0.4, 0.72, 1.0, 1.0)
+
+[node name="UltimateBBtn" type="Button" parent="PanelContainer/VBox/UltRow"]
+custom_minimum_size = Vector2(0, 30)
+size_flags_horizontal = 3
+text = "★ Ult B"
+theme_override_font_sizes/font_size = 12
+theme_override_colors/font_color = Color(1.0, 0.4, 0.3, 1.0)
+
+[node name="CancelUltBtn" type="Button" parent="PanelContainer/VBox/UltRow"]
+custom_minimum_size = Vector2(0, 30)
+size_flags_horizontal = 3
+text = "✕"
+theme_override_font_sizes/font_size = 12
+theme_override_colors/font_color = Color(0.55, 0.55, 0.55, 1.0)
+
+[node name="KillRow" type="HBoxContainer" parent="PanelContainer/VBox"]
+theme_override_constants/separation = 4
+
+[node name="KillABtn" type="Button" parent="PanelContainer/VBox/KillRow"]
+custom_minimum_size = Vector2(0, 28)
+size_flags_horizontal = 3
+text = "Kill A"
+theme_override_font_sizes/font_size = 12
+theme_override_colors/font_color = Color(0.4, 0.72, 1.0, 1.0)
+
+[node name="KillBBtn" type="Button" parent="PanelContainer/VBox/KillRow"]
+custom_minimum_size = Vector2(0, 28)
+size_flags_horizontal = 3
+text = "Kill B"
+theme_override_font_sizes/font_size = 12
+theme_override_colors/font_color = Color(1.0, 0.4, 0.3, 1.0)
+
+[node name="BossRow" type="HBoxContainer" parent="PanelContainer/VBox"]
+theme_override_constants/separation = 4
+
+[node name="SpawnBossBtn" type="Button" parent="PanelContainer/VBox/BossRow"]
+custom_minimum_size = Vector2(0, 28)
+size_flags_horizontal = 3
+text = "Spawn Boss"
+theme_override_font_sizes/font_size = 12
+theme_override_colors/font_color = Color(1.0, 0.6, 0.15, 1.0)
+
+[node name="BossLvLabel" type="Label" parent="PanelContainer/VBox/BossRow"]
+custom_minimum_size = Vector2(50, 28)
+size_flags_horizontal = 0
+text = "Lv.1"
+vertical_alignment = 1
+theme_override_font_sizes/font_size = 12
+theme_override_colors/font_color = Color(1.0, 0.75, 0.35, 0.9)
+
+[node name="Sep3" type="HSeparator" parent="PanelContainer/VBox"]
+modulate = Color(0.25, 0.9, 0.42, 0.3)
+
+[node name="AtkModeLabel" type="Label" parent="PanelContainer/VBox"]
+text = "Attack: Random"
+theme_override_font_sizes/font_size = 11
+theme_override_colors/font_color = Color(0.65, 0.65, 0.65, 0.85)
+
+[node name="AtkModeRow" type="HBoxContainer" parent="PanelContainer/VBox"]
+theme_override_constants/separation = 3
+
+[node name="AtkRndBtn" type="Button" parent="PanelContainer/VBox/AtkModeRow"]
+custom_minimum_size = Vector2(0, 24)
+size_flags_horizontal = 3
+text = "Rnd"
+theme_override_font_sizes/font_size = 11
+theme_override_colors/font_color = Color(0.85, 0.85, 0.85, 1.0)
+
+[node name="AtkBasicBtn" type="Button" parent="PanelContainer/VBox/AtkModeRow"]
+custom_minimum_size = Vector2(0, 24)
+size_flags_horizontal = 3
+text = "Basic"
+theme_override_font_sizes/font_size = 11
+theme_override_colors/font_color = Color(0.5, 0.85, 1.0, 0.7)
+
+[node name="AtkLaserBtn" type="Button" parent="PanelContainer/VBox/AtkModeRow"]
+custom_minimum_size = Vector2(0, 24)
+size_flags_horizontal = 3
+text = "Laser"
+theme_override_font_sizes/font_size = 11
+theme_override_colors/font_color = Color(0.4, 0.95, 1.0, 0.7)
+
+[node name="AtkChainBtn" type="Button" parent="PanelContainer/VBox/AtkModeRow"]
+custom_minimum_size = Vector2(0, 24)
+size_flags_horizontal = 3
+text = "Chain"
+theme_override_font_sizes/font_size = 11
+theme_override_colors/font_color = Color(0.9, 0.95, 0.5, 0.7)
+
+[node name="Sep2" type="HSeparator" parent="PanelContainer/VBox"]
+modulate = Color(0.25, 0.9, 0.42, 0.3)
+
+[node name="ComboLabel" type="Label" parent="PanelContainer/VBox"]
+text = "Combo Test"
+theme_override_font_sizes/font_size = 11
+theme_override_colors/font_color = Color(0.3, 1.0, 0.55, 0.8)
+
+[node name="ComboLikeRow" type="HBoxContainer" parent="PanelContainer/VBox"]
+theme_override_constants/separation = 4
+
+[node name="LikeA3Btn" type="Button" parent="PanelContainer/VBox/ComboLikeRow"]
+custom_minimum_size = Vector2(0, 26)
+size_flags_horizontal = 3
+text = "Like×3 A"
+theme_override_font_sizes/font_size = 11
+theme_override_colors/font_color = Color(0.3, 1.0, 0.55, 1.0)
+
+[node name="LikeB3Btn" type="Button" parent="PanelContainer/VBox/ComboLikeRow"]
+custom_minimum_size = Vector2(0, 26)
+size_flags_horizontal = 3
+text = "Like×3 B"
+theme_override_font_sizes/font_size = 11
+theme_override_colors/font_color = Color(0.3, 1.0, 0.55, 1.0)
+
+[node name="ComboDonRow" type="HBoxContainer" parent="PanelContainer/VBox"]
+theme_override_constants/separation = 4
+
+[node name="DonateA3Btn" type="Button" parent="PanelContainer/VBox/ComboDonRow"]
+custom_minimum_size = Vector2(0, 26)
+size_flags_horizontal = 3
+text = "Don×3 A"
+theme_override_font_sizes/font_size = 11
+theme_override_colors/font_color = Color(1.0, 0.85, 0.3, 1.0)
+
+[node name="DonateB3Btn" type="Button" parent="PanelContainer/VBox/ComboDonRow"]
+custom_minimum_size = Vector2(0, 26)
+size_flags_horizontal = 3
+text = "Don×3 B"
+theme_override_font_sizes/font_size = 11
+theme_override_colors/font_color = Color(1.0, 0.85, 0.3, 1.0)
+
+[node name="Sep5" type="HSeparator" parent="PanelContainer/VBox"]
+modulate = Color(0.25, 0.9, 0.42, 0.3)
+
+[node name="DonScaleLabel" type="Label" parent="PanelContainer/VBox"]
+text = "Donation Scale (All)"
+theme_override_font_sizes/font_size = 11
+theme_override_colors/font_color = Color(0.9, 0.75, 0.3, 0.85)
+
+[node name="DonScaleRow1" type="HBoxContainer" parent="PanelContainer/VBox"]
+theme_override_constants/separation = 4
+
+[node name="DonRoseABtn" type="Button" parent="PanelContainer/VBox/DonScaleRow1"]
+custom_minimum_size = Vector2(0, 26)
+size_flags_horizontal = 3
+text = "Rose A"
+theme_override_font_sizes/font_size = 11
+theme_override_colors/font_color = Color(1.0, 0.6, 0.75, 1.0)
+
+[node name="DonRoseBBtn" type="Button" parent="PanelContainer/VBox/DonScaleRow1"]
+custom_minimum_size = Vector2(0, 26)
+size_flags_horizontal = 3
+text = "Rose B"
+theme_override_font_sizes/font_size = 11
+theme_override_colors/font_color = Color(1.0, 0.6, 0.75, 1.0)
+
+[node name="DonScaleRow2" type="HBoxContainer" parent="PanelContainer/VBox"]
+theme_override_constants/separation = 4
+
+[node name="DonIceABtn" type="Button" parent="PanelContainer/VBox/DonScaleRow2"]
+custom_minimum_size = Vector2(0, 26)
+size_flags_horizontal = 3
+text = "IceCrm A"
+theme_override_font_sizes/font_size = 11
+theme_override_colors/font_color = Color(0.6, 0.85, 1.0, 1.0)
+
+[node name="DonIceBBtn" type="Button" parent="PanelContainer/VBox/DonScaleRow2"]
+custom_minimum_size = Vector2(0, 26)
+size_flags_horizontal = 3
+text = "IceCrm B"
+theme_override_font_sizes/font_size = 11
+theme_override_colors/font_color = Color(0.6, 0.85, 1.0, 1.0)
+
+[node name="DonScaleRow3" type="HBoxContainer" parent="PanelContainer/VBox"]
+theme_override_constants/separation = 4
+
+[node name="DonUnivABtn" type="Button" parent="PanelContainer/VBox/DonScaleRow3"]
+custom_minimum_size = Vector2(0, 26)
+size_flags_horizontal = 3
+text = "Univ A"
+theme_override_font_sizes/font_size = 11
+theme_override_colors/font_color = Color(1.0, 0.85, 0.2, 1.0)
+
+[node name="DonUnivBBtn" type="Button" parent="PanelContainer/VBox/DonScaleRow3"]
+custom_minimum_size = Vector2(0, 26)
+size_flags_horizontal = 3
+text = "Univ B"
+theme_override_font_sizes/font_size = 11
+theme_override_colors/font_color = Color(1.0, 0.85, 0.2, 1.0)
+
+[node name="Sep6" type="HSeparator" parent="PanelContainer/VBox"]
+modulate = Color(0.25, 0.9, 0.42, 0.3)
+
+[node name="AutoDemoButton" type="Button" parent="PanelContainer/VBox"]
+custom_minimum_size = Vector2(0, 28)
+text = "▶  Auto Demo"
+theme_override_font_sizes/font_size = 12
+theme_override_colors/font_color = Color(0.3, 1.0, 0.5, 1.0)
+
+[node name="ResetButton" type="Button" parent="PanelContainer/VBox"]
+custom_minimum_size = Vector2(0, 28)
+text = "Reset"
+theme_override_font_sizes/font_size = 12
+theme_override_colors/font_color = Color(0.62, 0.62, 0.62, 1.0)
+
+[connection signal="pressed" from="PanelContainer/VBox/SpawnRow/SpawnABtn" to="." method="_on_spawn_a_pressed"]
+[connection signal="pressed" from="PanelContainer/VBox/SpawnRow/SpawnBBtn" to="." method="_on_spawn_b_pressed"]
+[connection signal="pressed" from="PanelContainer/VBox/BossRow/SpawnBossBtn" to="." method="_on_spawn_boss_pressed"]
+[connection signal="pressed" from="PanelContainer/VBox/KillRow/KillABtn" to="." method="_on_kill_a_pressed"]
+[connection signal="pressed" from="PanelContainer/VBox/KillRow/KillBBtn" to="." method="_on_kill_b_pressed"]
+[connection signal="pressed" from="PanelContainer/VBox/GiftRow/RoseABtn" to="." method="_on_rose_a_pressed"]
+[connection signal="pressed" from="PanelContainer/VBox/GiftRow/RoseBBtn" to="." method="_on_rose_b_pressed"]
+[connection signal="pressed" from="PanelContainer/VBox/UltRow/UltimateABtn" to="." method="_on_ultimate_a_pressed"]
+[connection signal="pressed" from="PanelContainer/VBox/UltRow/UltimateBBtn" to="." method="_on_ultimate_b_pressed"]
+[connection signal="pressed" from="PanelContainer/VBox/UltRow/CancelUltBtn" to="." method="_on_cancel_ultimate_pressed"]
+[connection signal="pressed" from="PanelContainer/VBox/ComboLikeRow/LikeA3Btn" to="." method="_on_like_combo_a_pressed"]
+[connection signal="pressed" from="PanelContainer/VBox/ComboLikeRow/LikeB3Btn" to="." method="_on_like_combo_b_pressed"]
+[connection signal="pressed" from="PanelContainer/VBox/ComboDonRow/DonateA3Btn" to="." method="_on_donate_combo_a_pressed"]
+[connection signal="pressed" from="PanelContainer/VBox/ComboDonRow/DonateB3Btn" to="." method="_on_donate_combo_b_pressed"]
+[connection signal="pressed" from="PanelContainer/VBox/DonScaleRow1/DonRoseABtn" to="." method="_on_don_scale_pressed" binds=["rose", 1]]
+[connection signal="pressed" from="PanelContainer/VBox/DonScaleRow1/DonRoseBBtn" to="." method="_on_don_scale_pressed" binds=["rose", 2]]
+[connection signal="pressed" from="PanelContainer/VBox/DonScaleRow2/DonIceABtn" to="." method="_on_don_scale_pressed" binds=["ice_cream", 1]]
+[connection signal="pressed" from="PanelContainer/VBox/DonScaleRow2/DonIceBBtn" to="." method="_on_don_scale_pressed" binds=["ice_cream", 2]]
+[connection signal="pressed" from="PanelContainer/VBox/DonScaleRow3/DonUnivABtn" to="." method="_on_don_scale_pressed" binds=["universe", 1]]
+[connection signal="pressed" from="PanelContainer/VBox/DonScaleRow3/DonUnivBBtn" to="." method="_on_don_scale_pressed" binds=["universe", 2]]
+[connection signal="pressed" from="PanelContainer/VBox/AutoDemoButton" to="." method="_on_auto_demo_pressed"]
+[connection signal="pressed" from="PanelContainer/VBox/ResetButton" to="." method="_on_reset_pressed"]
+[connection signal="pressed" from="PanelContainer/VBox/AtkModeRow/AtkRndBtn" to="." method="_on_atk_mode_pressed" binds=[-1]]
+[connection signal="pressed" from="PanelContainer/VBox/AtkModeRow/AtkBasicBtn" to="." method="_on_atk_mode_pressed" binds=[0]]
+[connection signal="pressed" from="PanelContainer/VBox/AtkModeRow/AtkLaserBtn" to="." method="_on_atk_mode_pressed" binds=[1]]
+[connection signal="pressed" from="PanelContainer/VBox/AtkModeRow/AtkChainBtn" to="." method="_on_atk_mode_pressed" binds=[2]]

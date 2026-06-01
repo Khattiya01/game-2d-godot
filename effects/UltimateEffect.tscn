@@ -1,0 +1,70 @@
+[gd_scene format=3 uid="uid://cqw3tb2e1nm8t"]
+
+[ext_resource type="Script" uid="uid://cdrx4ne8q72pf" path="res://effects/UltimateEffect.gd" id="1_effectScript"]
+
+[sub_resource type="CanvasItemMaterial" id="CIM_add"]
+blend_mode = 1
+
+[sub_resource type="Gradient" id="Gradient_impact"]
+offsets = PackedFloat32Array(0, 0.2, 0.6, 1)
+colors = PackedColorArray(1, 1, 0.9, 1, 1, 0.8, 0.2, 1, 1, 0.3, 0, 0.5, 0.5, 0.1, 0, 0)
+
+[sub_resource type="GradientTexture1D" id="GradTex_impact"]
+gradient = SubResource("Gradient_impact")
+width = 128
+
+[sub_resource type="ParticleProcessMaterial" id="PPM_impact"]
+direction = Vector3(0, -1, 0)
+spread = 180.0
+initial_velocity_min = 200.0
+initial_velocity_max = 600.0
+angular_velocity_min = -250.0
+angular_velocity_max = 250.0
+gravity = Vector3(0, -30, 0)
+scale_min = 1.5
+scale_max = 3.5
+color_ramp = SubResource("GradTex_impact")
+
+[sub_resource type="AudioStreamWAV" id="AudioStreamWAV_mlebk"]
+
+[node name="UltimateEffect" type="Node2D" unique_id=483777375]
+script = ExtResource("1_effectScript")
+
+[node name="VideoLayer" type="CanvasLayer" parent="." unique_id=1168820916]
+layer = 10
+
+[node name="VideoStreamPlayer" type="VideoStreamPlayer" parent="VideoLayer" unique_id=1896761140]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="ImpactParticles" type="GPUParticles2D" parent="." unique_id=1273844616]
+z_index = 20
+material = SubResource("CIM_add")
+emitting = false
+amount = 200
+lifetime = 1.2
+one_shot = true
+explosiveness = 1.0
+randomness = 0.3
+process_material = SubResource("PPM_impact")
+
+[node name="ScreenFlash" type="CanvasLayer" parent="." unique_id=1941863636]
+layer = 25
+
+[node name="FlashRect" type="ColorRect" parent="ScreenFlash" unique_id=89565703]
+modulate = Color(1, 1, 1, 0)
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(1, 0.9, 0.6, 1)
+
+[node name="FinalShockwave" type="Line2D" parent="." unique_id=502790762]
+z_index = 15
+width = 6.0
+default_color = Color(1, 0.9, 0.5, 1)
+
+[node name="Audio" type="Node" parent="." unique_id=1664909418]
+
+[node name="SoundEffects" type="AudioStreamPlayer" parent="Audio" unique_id=504271154]
+stream = SubResource("AudioStreamWAV_mlebk")

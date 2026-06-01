@@ -1,0 +1,22 @@
+[gd_scene format=3 uid="uid://c7bghkn2pmq8x"]
+
+[ext_resource type="Script" path="res://scenes/CharacterBackground.gd" id="1_cbg"]
+
+[node name="CharacterBackground" type="Node2D"]
+script = ExtResource("1_cbg")
+
+[node name="TeamA_Bg" type="CanvasLayer" parent="."]
+layer = -1
+
+[node name="CharBg" type="TextureRect" parent="TeamA_Bg"]
+modulate = Color(1, 1, 1, 0.55)
+
+[node name="AnimationPlayer" type="AnimationPlayer" parent="TeamA_Bg"]
+
+[node name="TeamB_Bg" type="CanvasLayer" parent="."]
+layer = -1
+
+[node name="CharBg" type="TextureRect" parent="TeamB_Bg"]
+modulate = Color(1, 1, 1, 0.55)
+
+[node name="AnimationPlayer" type="AnimationPlayer" parent="TeamB_Bg"]
