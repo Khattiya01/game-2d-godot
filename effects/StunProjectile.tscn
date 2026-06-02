@@ -1,0 +1,82 @@
+[gd_scene format=3 uid="uid://cq4rs6vd1xm8l"]
+
+[ext_resource type="Script" uid="uid://dv754wmm74gs1" path="res://effects/StunProjectile.gd" id="1_script"]
+[ext_resource type="AudioStream" uid="uid://gr6xjx2dotda" path="res://assets/sounds/wind_rock_01.mp3" id="2_wind"]
+[ext_resource type="AudioStream" uid="uid://diqg5p7dbbqb1" path="res://assets/sounds/rock_imapct_attack_01.mp3" id="3_impact"]
+
+[sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_add"]
+blend_mode = 1
+
+[sub_resource type="Gradient" id="Gradient_trail"]
+colors = PackedColorArray(0.62, 0.48, 0.28, 0.9, 0.38, 0.26, 0.12, 0)
+
+[sub_resource type="GradientTexture1D" id="GradientTexture1D_trail"]
+gradient = SubResource("Gradient_trail")
+width = 64
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_trail"]
+direction = Vector3(-1, 0, 0)
+spread = 25.0
+initial_velocity_min = 10.0
+initial_velocity_max = 30.0
+gravity = Vector3(0, 20, 0)
+scale_min = 0.4
+scale_max = 0.9
+color_ramp = SubResource("GradientTexture1D_trail")
+
+[sub_resource type="Gradient" id="Gradient_impact"]
+offsets = PackedFloat32Array(0, 0.3, 0.7, 1)
+colors = PackedColorArray(1, 0.92, 0.6, 1, 0.85, 0.55, 0.2, 0.9, 0.6, 0.35, 0.1, 0.5, 0.38, 0.18, 0, 0)
+
+[sub_resource type="GradientTexture1D" id="GradientTexture1D_impact"]
+gradient = SubResource("Gradient_impact")
+width = 128
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_impact"]
+direction = Vector3(0, -1, 0)
+spread = 180.0
+initial_velocity_min = 100.0
+initial_velocity_max = 280.0
+angular_velocity_min = -180.0
+angular_velocity_max = 180.0
+gravity = Vector3(0, 80, 0)
+scale_min = 0.6
+scale_max = 1.8
+color_ramp = SubResource("GradientTexture1D_impact")
+
+[node name="StunProjectile" type="Node2D" unique_id=1074286823]
+z_index = 4
+script = ExtResource("1_script")
+
+[node name="Projectile" type="Node2D" parent="." unique_id=1358640819]
+
+[node name="RockShape" type="Polygon2D" parent="Projectile" unique_id=360025327]
+color = Color(0.52, 0.4, 0.27, 1)
+
+[node name="TrailParticles" type="GPUParticles2D" parent="Projectile" unique_id=13209690]
+material = SubResource("CanvasItemMaterial_add")
+emitting = false
+amount = 20
+lifetime = 0.35
+randomness = 0.2
+process_material = SubResource("ParticleProcessMaterial_trail")
+
+[node name="ImpactParticles" type="GPUParticles2D" parent="." unique_id=804995137]
+material = SubResource("CanvasItemMaterial_add")
+emitting = false
+amount = 40
+lifetime = 0.85
+one_shot = true
+explosiveness = 1.0
+randomness = 0.3
+process_material = SubResource("ParticleProcessMaterial_impact")
+
+[node name="LaunchSound" type="AudioStreamPlayer2D" parent="." unique_id=1585507587]
+stream = ExtResource("2_wind")
+volume_db = 2.367
+max_distance = 3000.0
+
+[node name="HitSound" type="AudioStreamPlayer2D" parent="." unique_id=310508310]
+stream = ExtResource("3_impact")
+volume_db = -3.0
+max_distance = 3000.0

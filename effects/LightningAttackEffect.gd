@@ -1,7 +1,7 @@
 extends Node2D
 
-const DAMAGE_INITIAL: int = 60   # first strike — all chained targets
-const DAMAGE_TICK: int = 40      # second zap at midpoint (~0.85s)
+const DMG_FACTOR_INITIAL: float = 1.25   # first strike — all chained targets
+const DMG_FACTOR_TICK: float = 0.75     # second zap at midpoint (~0.85s)
 const CHAIN_COUNT: int = 3
 const HOLD_DURATION: float = 1.7
 const FADE_DURATION: float = 0.3
@@ -17,6 +17,7 @@ var _elapsed: float = 0.0
 var _flicker_timer: float = 0.0
 var _ticked: bool = false
 var _damage_mult: float = 1.0
+var _base_dmg: int = 10
 
 @onready var sfx: AudioStreamPlayer2D = $SFX
 
@@ -27,6 +28,7 @@ func fire(effect_data: Dictionary) -> void:
 	var arena: Node = effect_data.get("arena", null)
 	_on_complete = effect_data.get("on_complete", Callable())
 	_damage_mult = effect_data.get("damage_mult", 1.0)
+	_base_dmg = int(effect_data.get("base_dmg", 10))
 
 	sfx.play()
 	if not primary or not is_instance_valid(primary):
@@ -43,9 +45,10 @@ func fire(effect_data: Dictionary) -> void:
 				_targets.append(next)
 
 	# First strike — all chained targets
+	var _kid: String = str(_attacker.get("player_id")) if _attacker and is_instance_valid(_attacker) else ""
 	for t in _targets:
 		if is_instance_valid(t) and t.has_method("take_damage"):
-			t.take_damage(int(float(DAMAGE_INITIAL) * _damage_mult))
+			t.take_damage(maxi(1, int(float(_base_dmg) * DMG_FACTOR_INITIAL * _damage_mult)), _kid)
 
 	_active = true
 	_elapsed = 0.0
@@ -64,9 +67,10 @@ func _process(delta: float) -> void:
 	# Second zap at midpoint
 	if not _ticked and _elapsed >= TICK_TIME:
 		_ticked = true
+		var _kid2: String = str(_attacker.get("player_id")) if _attacker and is_instance_valid(_attacker) else ""
 		for t in _targets:
 			if is_instance_valid(t) and t.has_method("take_damage"):
-				t.take_damage(int(float(DAMAGE_TICK) * _damage_mult))
+				t.take_damage(maxi(1, int(float(_base_dmg) * DMG_FACTOR_TICK * _damage_mult)), _kid2)
 
 	if _elapsed >= HOLD_DURATION:
 		_active = false

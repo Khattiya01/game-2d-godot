@@ -7,11 +7,14 @@ const MicroEffectScene := preload("res://effects/MicroEffect.tscn")
 const PlayerAttackScene := preload("res://effects/PlayerAttackEffect.tscn")
 const LaserAttackScene := preload("res://effects/LaserAttackEffect.tscn")
 const LightningAttackScene := preload("res://effects/LightningAttackEffect.tscn")
+const ShieldBubbleScene := preload("res://effects/ShieldBubble.tscn")
+const SpikeExplosionScene := preload("res://effects/SpikeExplosion.tscn")
+const StunProjectileScene  := preload("res://effects/StunProjectile.tscn")
+const ElectricStormScene   := preload("res://effects/ElectricStorm.tscn")
 
 @export var zone_a: Rect2 = Rect2(30, 180, 900, 860)
 @export var zone_b: Rect2 = Rect2(990, 180, 900, 860)
 @export var max_avatars_per_zone: int = 100
-@export var match_duration: float = 300.0
 
 @onready var score_a_label: Label = $UILayer/ScoreA
 @onready var score_b_label: Label = $UILayer/ScoreB
@@ -20,7 +23,7 @@ const LightningAttackScene := preload("res://effects/LightningAttackEffect.tscn"
 
 var score_a: int = 0
 var score_b: int = 0
-var time_remaining: float = 0.0
+var _stream_elapsed: float = 0.0
 var game_active: bool = false
 var is_boss_phase: bool = false
 var debug_attack_mode: int = -1  # -1=random, 0=basic, 1=laser, 2=chain
@@ -31,6 +34,7 @@ var _boss_ref: Node = null            # active boss node (avatars retarget to th
 var _announce_overlay: CanvasLayer = null
 var _camera: Camera2D = null
 var _boss_overlay: CanvasLayer = null
+var _boss_overlay_root: Control = null
 var _boss_overlay_timer_lbl: Label = null
 
 var _shake_duration: float = 0.0
@@ -41,16 +45,15 @@ var _dmg_buff: Dictionary = {
 	"team_b": { "mult": 1.0, "timer": 0.0 },
 }
 
-signal game_over(winner: int)
 
 func _ready() -> void:
 	var char_bg: Node2D = CharacterBgScene.instantiate()
 	add_child(char_bg)
-	time_remaining = match_duration
 	_refresh_score()
 	_refresh_timer()
 	UltimateController.register_arena(self)
 	BossManager.register_arena(self)
+	StretchGoal.register_arena(self)
 	GameManager.trigger_effect_requested.connect(_on_trigger_effect_requested)
 	GameManager.spawn_avatar_requested.connect(_on_spawn_avatar_requested)
 	ComboTracker.heal_requested.connect(_on_heal_requested)
@@ -75,10 +78,8 @@ func _process(delta: float) -> void:
 
 	if not game_active:
 		return
-	time_remaining = maxf(0.0, time_remaining - delta)
+	_stream_elapsed += delta
 	_refresh_timer()
-	if time_remaining == 0.0:
-		_end_game()
 	for key in _dmg_buff:
 		var buff: Dictionary = _dmg_buff[key]
 		if buff["timer"] > 0.0:
@@ -91,7 +92,7 @@ func start_game() -> void:
 	clear_avatars()
 	score_a = 0
 	score_b = 0
-	time_remaining = match_duration
+	_stream_elapsed = 0.0
 	game_active = true
 	_refresh_score()
 	_refresh_timer()
@@ -122,6 +123,46 @@ func damage_team_all(team: int, amount: int) -> void:
 	for av in list:
 		if is_instance_valid(av) and av.has_method("take_damage") and av.get("_alive"):
 			av.take_damage(amount)
+
+# Ultimate variant: pre-collect kill EXP before damage so level-reset doesn't erase it,
+# then distribute evenly to all alive members of attacker_team.
+func damage_team_all_ultimate(target_team: int, attacker_team: int, amount: int) -> void:
+	var targets := (_avatars_a if target_team == 1 else _avatars_b).duplicate()
+	var attackers := (_avatars_a if attacker_team == 1 else _avatars_b).duplicate()
+
+	# Pre-calculate EXP from victims who will die (HP <= damage)
+	var total_exp := 0
+	for av in targets:
+		if not is_instance_valid(av) or not av.get("_alive") or av.get("_respawning"):
+			continue
+		var hp = av.get("current_hp")
+		if hp != null and int(hp) <= amount:
+			var pid = av.get("player_id")
+			if pid != null:
+				total_exp += PlayerStats.get_stats(str(pid)).get("kill_reward_exp", 0)
+
+	# Apply damage
+	for av in targets:
+		if is_instance_valid(av) and av.has_method("take_damage") and av.get("_alive"):
+			av.take_damage(amount)
+
+	# Distribute collected EXP evenly to alive attackers
+	if total_exp <= 0:
+		return
+	var alive_attackers: Array = []
+	for av in attackers:
+		if is_instance_valid(av) and av.get("_alive") and not av.get("_respawning"):
+			alive_attackers.append(av)
+	if alive_attackers.is_empty():
+		return
+	var share := total_exp / alive_attackers.size()
+	if share <= 0:
+		return
+	for av in alive_attackers:
+		var pid = av.get("player_id")
+		if pid != null:
+			PlayerStats.add_exp(str(pid), share, "ultimate_kill")
+	print("[Arena] Ultimate kill EXP: total=%d  share=%d  to %d players" % [total_exp, share, alive_attackers.size()])
 
 # ── Enemy query ──────────────────────────────────────────────────────────────
 
@@ -159,20 +200,36 @@ func on_avatar_died(avatar: Node, team: int) -> void:
 
 # ── Effect spawning ───────────────────────────────────────────────────────────
 
-func spawn_attack_effect(from_pos: Vector2, to_pos: Vector2, target: Node, on_complete: Callable = Callable(), dmg_mult: float = 1.0) -> void:
+func spawn_attack_effect(from_pos: Vector2, to_pos: Vector2, target: Node, on_complete: Callable = Callable(), dmg_mult: float = 1.0, killer_id: String = "", base_dmg: int = 10) -> void:
 	var effect: Node2D = PlayerAttackScene.instantiate()
 	game_layer.add_child(effect)
-	effect.fire({"from_pos": from_pos, "target_pos": to_pos, "target": target, "on_complete": on_complete, "damage_mult": dmg_mult})
+	effect.fire({"from_pos": from_pos, "target_pos": to_pos, "target": target, "on_complete": on_complete, "damage_mult": dmg_mult, "killer_id": killer_id, "base_dmg": base_dmg})
 
-func spawn_laser_attack(attacker: Node, target: Node, on_complete: Callable, dmg_mult: float = 1.0) -> void:
+func spawn_laser_attack(attacker: Node, target: Node, on_complete: Callable, dmg_mult: float = 1.0, base_dmg: int = 10) -> void:
 	var effect: Node2D = LaserAttackScene.instantiate()
 	game_layer.add_child(effect)
-	effect.fire({"attacker": attacker, "target": target, "on_complete": on_complete, "damage_mult": dmg_mult})
+	effect.fire({"attacker": attacker, "target": target, "on_complete": on_complete, "damage_mult": dmg_mult, "base_dmg": base_dmg})
 
-func spawn_lightning_attack(attacker: Node, target: Node, team: int, on_complete: Callable, dmg_mult: float = 1.0) -> void:
+func spawn_lightning_attack(attacker: Node, target: Node, team: int, on_complete: Callable, dmg_mult: float = 1.0, base_dmg: int = 10) -> void:
 	var effect: Node2D = LightningAttackScene.instantiate()
 	game_layer.add_child(effect)
-	effect.fire({"attacker": attacker, "target": target, "team": team, "arena": self, "on_complete": on_complete, "damage_mult": dmg_mult})
+	effect.fire({"attacker": attacker, "target": target, "team": team, "arena": self, "on_complete": on_complete, "damage_mult": dmg_mult, "base_dmg": base_dmg})
+
+func get_team_total_damage(team: int) -> int:
+	var list := _avatars_a if team == 1 else _avatars_b
+	var total := 0
+	for av in list:
+		if is_instance_valid(av) and av.get("_alive") == true:
+			var pid = av.get("player_id")
+			total += PlayerStats.get_damage(PlayerStats.get_level(str(pid) if pid != null else ""))
+	return maxi(total, 10)
+
+func get_all_alive_avatars() -> Array[Node]:
+	var result: Array[Node] = []
+	for av in _avatars_a + _avatars_b:
+		if is_instance_valid(av) and av.get("_alive") and not av.get("_respawning"):
+			result.append(av)
+	return result
 
 func get_nearest_on_team_excluding(from_pos: Vector2, team: int, exclude: Array) -> Node:
 	var list := _avatars_a if team == 1 else _avatars_b
@@ -196,6 +253,44 @@ func trigger_gift_attack(from_team: int) -> void:
 
 func trigger_ultimate_attack(from_team: int) -> void:
 	UltimateController.request_ultimate(from_team)
+
+func spawn_shield_bubble(avatar: Node, on_complete: Callable) -> void:
+	var stack_count := 0
+	for child in avatar.get_children():
+		if child.is_in_group("shield_bubble"):
+			stack_count += 1
+	var effect: Node2D = ShieldBubbleScene.instantiate()
+	avatar.add_child(effect)
+	effect.fire({"on_complete": on_complete, "stack_index": stack_count})
+
+func spawn_spikes_attack(attacker: Node, from_team: int, on_complete: Callable, dmg_mult: float = 1.0, base_dmg: int = 10) -> void:
+	var effect: Node2D = SpikeExplosionScene.instantiate()
+	game_layer.add_child(effect)
+	effect.fire({
+		"from_pos": attacker.global_position,
+		"target_team": 3 - from_team,
+		"arena": self,
+		"on_complete": on_complete,
+		"damage_mult": dmg_mult,
+		"base_dmg": base_dmg,
+	})
+
+func spawn_electric_storm() -> void:
+	var effect: Node2D = ElectricStormScene.instantiate()
+	add_child(effect)
+	effect.fire({"arena": self})
+
+func spawn_stun_projectile_attack(attacker: Node, target: Node, on_complete: Callable, dmg_mult: float = 1.0, base_dmg: int = 10) -> void:
+	var effect: Node2D = StunProjectileScene.instantiate()
+	game_layer.add_child(effect)
+	effect.fire({
+		"from_pos": attacker.global_position,
+		"target": target,
+		"on_complete": on_complete,
+		"damage_mult": dmg_mult,
+		"base_dmg": base_dmg,
+		"arena": self,
+	})
 
 # ── Debug helpers ─────────────────────────────────────────────────────────────
 
@@ -241,13 +336,15 @@ func on_like(username: String, _count: int = 1) -> void:
 
 func on_gift(username: String, gift_name: String, avatar_url: String, from_team: int) -> void:
 	var team_str := "team_a" if from_team == 1 else "team_b"
-	match gift_name.to_lower():
-		"rose":
-			trigger_gift_attack(from_team)
-		"universe":
-			UltimateCharger.add_charge(team_str, 100.0)
-		"like":
-			on_like(username)
+	if gift_name.to_lower() == "like":
+		on_like(username)
+		return
+	GameManager.on_gift_received({
+		"gift":     gift_name,
+		"team":     team_str,
+		"username": username,
+		"avatar":   avatar_url,
+	})
 
 func spawn_avatar(username: String, team: int, avatar_url: String) -> void:
 	if is_boss_phase:
@@ -284,9 +381,8 @@ func _refresh_score() -> void:
 	score_b_label.text = str(score_b)
 
 func _refresh_timer() -> void:
-	var m := int(time_remaining) / 60
-	var s := int(time_remaining) % 60
-	timer_label.text = "%d:%02d" % [m, s]
+	var e := int(_stream_elapsed)
+	timer_label.text = "%d:%02d" % [e / 60, e % 60]
 
 # Spawns a floating gold "+N EXP" label at world_pos (shown on kill).
 func spawn_exp_gain_text(world_pos: Vector2, amount: int) -> void:
@@ -514,6 +610,9 @@ func _show_boss_phase_overlay(level: int) -> void:
 	_boss_overlay = CanvasLayer.new()
 	_boss_overlay.layer = 9
 	add_child(_boss_overlay)
+	_boss_overlay_root = Control.new()
+	_boss_overlay_root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_boss_overlay.add_child(_boss_overlay_root)
 
 	var px := 660.0
 	var py := 962.0
@@ -524,13 +623,13 @@ func _show_boss_phase_overlay(level: int) -> void:
 	bg.color = Color(0.0, 0.0, 0.05, 0.72)
 	bg.size = Vector2(pw, ph)
 	bg.position = Vector2(px, py)
-	_boss_overlay.add_child(bg)
+	_boss_overlay_root.add_child(bg)
 
 	var border := ColorRect.new()
 	border.color = Color(1.0, 0.45, 0.1, 0.6)
 	border.size = Vector2(pw, 2.0)
 	border.position = Vector2(px, py)
-	_boss_overlay.add_child(border)
+	_boss_overlay_root.add_child(border)
 
 	var title := Label.new()
 	title.text = "BOSS  LV.%d  ——  PHASE TIMER" % level
@@ -541,7 +640,7 @@ func _show_boss_phase_overlay(level: int) -> void:
 	title.add_theme_color_override("font_color", Color(1.0, 0.65, 0.25, 1.0))
 	title.add_theme_color_override("font_outline_color", Color(0, 0, 0, 1))
 	title.add_theme_constant_override("outline_size", 1)
-	_boss_overlay.add_child(title)
+	_boss_overlay_root.add_child(title)
 
 	_boss_overlay_timer_lbl = Label.new()
 	_boss_overlay_timer_lbl.size = Vector2(pw, 72.0)
@@ -552,16 +651,17 @@ func _show_boss_phase_overlay(level: int) -> void:
 	_boss_overlay_timer_lbl.add_theme_color_override("font_outline_color", Color(0, 0, 0, 1))
 	_boss_overlay_timer_lbl.add_theme_constant_override("outline_size", 4)
 	_boss_overlay_timer_lbl.text = "2:00"
-	_boss_overlay.add_child(_boss_overlay_timer_lbl)
+	_boss_overlay_root.add_child(_boss_overlay_timer_lbl)
 
-	_boss_overlay.modulate.a = 0.0
-	var t := _boss_overlay.create_tween()
-	t.tween_property(_boss_overlay, "modulate:a", 1.0, 0.5)
+	_boss_overlay_root.modulate.a = 0.0
+	var t := _boss_overlay_root.create_tween()
+	t.tween_property(_boss_overlay_root, "modulate:a", 1.0, 0.5)
 
 func _remove_boss_phase_overlay() -> void:
 	if is_instance_valid(_boss_overlay):
 		_boss_overlay.queue_free()
 	_boss_overlay = null
+	_boss_overlay_root = null
 	_boss_overlay_timer_lbl = null
 
 # Full-screen celebration overlay + fireworks on boss defeat.
@@ -687,7 +787,7 @@ func get_team_hp_ratio(team: int) -> float:
 	for av in list:
 		if not is_instance_valid(av):
 			continue
-		cur_sum += int(av.get("current_hp", 0))
+		var _hp = av.get("current_hp"); cur_sum += int(_hp) if _hp != null else 0
 		var stats: Node = av.get("_avatar_stats") as Node
 		if is_instance_valid(stats):
 			max_sum += stats.get_max_hp()
@@ -705,7 +805,7 @@ func get_team_hp_totals(team: int) -> Vector2i:
 	for av in list:
 		if not is_instance_valid(av):
 			continue
-		cur_sum += int(av.get("current_hp", 0))
+		var _hp = av.get("current_hp"); cur_sum += int(_hp) if _hp != null else 0
 		var stats: Node = av.get("_avatar_stats") as Node
 		if is_instance_valid(stats):
 			max_sum += stats.get_max_hp()
@@ -726,7 +826,7 @@ func damage_team_boss_attack(team: int, total_damage: int) -> void:
 	var highest: Node = null
 	var highest_lv := 0
 	for av in alive:
-		var lv: int = PlayerStats.get_level(str(av.get("player_id", "")))
+		var _pid = av.get("player_id"); var lv: int = PlayerStats.get_level(str(_pid) if _pid != null else "")
 		if lv > highest_lv:
 			highest_lv = lv
 			highest = av
@@ -734,7 +834,7 @@ func damage_team_boss_attack(team: int, total_damage: int) -> void:
 	var spread_dmg := int(float(total_damage) * 0.7 / float(alive.size()))
 	for av in alive:
 		var dmg := spread_dmg + (main_dmg if av == highest else 0)
-		av.take_damage(maxi(1, dmg))
+		av.take_damage(maxi(1, dmg), "boss")
 
 func _heal_all_half() -> void:
 	for av in _avatars_a + _avatars_b:
@@ -770,19 +870,3 @@ func debug_donation_all(team: int, gift_name: String) -> void:
 		for av in list:
 			if is_instance_valid(av) and av.get("player_id") != "":
 				PlayerStats.add_exp(str(av.get("player_id")), exp, "donate")
-
-func _end_game() -> void:
-	game_active = false
-	var winner := 0
-	if score_a > score_b:
-		winner = 1
-		timer_label.text = "TEAM A WIN!"
-		timer_label.add_theme_color_override("font_color", Color(0.3, 0.6, 1.0, 1.0))
-	elif score_b > score_a:
-		winner = 2
-		timer_label.text = "TEAM B WIN!"
-		timer_label.add_theme_color_override("font_color", Color(1.0, 0.25, 0.08, 1.0))
-	else:
-		timer_label.text = "DRAW!"
-		timer_label.add_theme_color_override("font_color", Color(0.9, 0.9, 0.9, 1.0))
-	emit_signal("game_over", winner)

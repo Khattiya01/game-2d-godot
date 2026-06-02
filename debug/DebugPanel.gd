@@ -12,12 +12,15 @@ const USERNAMES := [
 @onready var boss_lv_label: Label = $PanelContainer/VBox/BossRow/BossLvLabel
 @onready var atk_btns: Array = []
 
-const ATK_MODE_NAMES := {-1: "Random", 0: "Basic", 1: "Laser", 2: "Chain"}
+const ATK_MODE_NAMES := {-1: "Random", 0: "Basic", 1: "Laser", 2: "Chain", 3: "Shield", 4: "Spike", 5: "Rock"}
 const ATK_BTN_COLORS := {
 	-1: Color(0.85, 0.85, 0.85, 1.0),
-	0:  Color(0.5, 0.85, 1.0, 1.0),
-	1:  Color(0.4, 0.95, 1.0, 1.0),
-	2:  Color(0.9, 0.95, 0.5, 1.0),
+	0:  Color(0.50, 0.85, 1.0,  1.0),
+	1:  Color(0.40, 0.95, 1.0,  1.0),
+	2:  Color(0.90, 0.95, 0.5,  1.0),
+	3:  Color(0.35, 0.75, 1.0,  1.0),
+	4:  Color(0.00, 1.00, 0.25, 1.0),
+	5:  Color(0.85, 0.62, 0.35, 1.0),
 }
 
 var _auto_active: bool = false
@@ -29,10 +32,29 @@ func _arena() -> Node:
 
 func _ready() -> void:
 	panel.visible = true
-	var row := $PanelContainer/VBox/AtkModeRow
-	atk_btns = [row.get_node("AtkRndBtn"), row.get_node("AtkBasicBtn"),
-				row.get_node("AtkLaserBtn"), row.get_node("AtkChainBtn")]
+	var row  := $PanelContainer/VBox/AtkModeRow
+	var row2 := $PanelContainer/VBox/AtkModeRow2
+	atk_btns = [
+		row.get_node("AtkRndBtn"), row.get_node("AtkBasicBtn"),
+		row.get_node("AtkLaserBtn"), row.get_node("AtkChainBtn"),
+		row2.get_node("AtkShieldBtn"), row2.get_node("AtkSpikeBtn"),
+		row2.get_node("AtkRockBtn"),
+	]
 	_refresh_atk_ui(-1)
+	# Dynamic Chaos FX section
+	var vbox: VBoxContainer = $PanelContainer/VBox
+	var sep := HSeparator.new()
+	vbox.add_child(sep)
+	var chaos_lbl := Label.new()
+	chaos_lbl.text = "── Chaos FX ──"
+	chaos_lbl.add_theme_color_override("font_color", Color(0.9, 0.5, 1.0, 1.0))
+	chaos_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(chaos_lbl)
+	var storm_btn := Button.new()
+	storm_btn.text = "⚡ Electric Storm"
+	storm_btn.add_theme_color_override("font_color", Color(0.5, 0.85, 1.0, 1.0))
+	storm_btn.pressed.connect(_on_storm_pressed)
+	vbox.add_child(storm_btn)
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo:
@@ -69,7 +91,7 @@ func _run_auto_step() -> void:
 			a.on_chat(_rnd(), "1", "")
 			a.on_chat(_rnd(), "2", "")
 		9:
-			a.on_gift(_rnd(), "universe", "", randi() % 2 + 1)
+			a.on_gift(_rnd(), "ice_cream", "", randi() % 2 + 1)
 	_auto_step += 1
 
 # ── Button handlers ──────────────────────────────────────────────────────────
@@ -113,6 +135,8 @@ func _on_auto_demo_pressed() -> void:
 	_auto_active = not _auto_active
 	_auto_timer = 0.0
 	_auto_step = 0
+	if _auto_active:
+		_arena().start_game()
 	auto_btn.text = "■  Stop Demo" if _auto_active else "▶  Auto Demo"
 	auto_btn.add_theme_color_override(
 		"font_color",
@@ -151,15 +175,18 @@ func _on_atk_mode_pressed(mode: int) -> void:
 	_arena().debug_attack_mode = mode
 	_refresh_atk_ui(mode)
 
+func _on_storm_pressed() -> void:
+	_arena().spawn_electric_storm()
+
 func _refresh_atk_ui(mode: int) -> void:
 	atk_mode_label.text = "Attack: %s" % ATK_MODE_NAMES.get(mode, "?")
 	var active_color: Color = ATK_BTN_COLORS.get(mode, Color.WHITE)
 	atk_mode_label.add_theme_color_override("font_color", active_color)
-	var modes := [-1, 0, 1, 2]
+	var modes := [-1, 0, 1, 2, 3, 4, 5]
 	for i in atk_btns.size():
 		var btn: Button = atk_btns[i]
+		var col: Color = ATK_BTN_COLORS[modes[i]]
 		var dim: bool = modes[i] != mode
 		btn.add_theme_color_override("font_color",
-			ATK_BTN_COLORS[modes[i]] if not dim else Color(ATK_BTN_COLORS[modes[i]].r,
-			ATK_BTN_COLORS[modes[i]].g, ATK_BTN_COLORS[modes[i]].b, 0.4)
+			col if not dim else Color(col.r, col.g, col.b, 0.4)
 		)

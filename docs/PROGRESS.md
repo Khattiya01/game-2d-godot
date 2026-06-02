@@ -40,6 +40,13 @@
 
 ---
 
+- [2026-06-01] **ShieldBubble.tscn + .gd** — Donut ¥1 gift effect; blue neon Line2D circle (GlowLine 14px + CircleLine 2.5px), FlashPolygon fade 0.35s, pulse scale 1.0↔1.05 via looping Tween, 5s duration, 0.5s fade out; `fire({position, team, arena})`
+- [2026-06-01] **SpikeExplosion.tscn + .gd** — Gift Box ¥1 gift effect; 8 triangle Polygon2D spikes (alternating yellow/orange) expand 85px in 0.3s via Expo tween, center FlashPolygon fade, GPUParticles2D burst 50 gold particles (1-shot), 0.2s spike fade; `fire({position, from_team, arena})`
+- [2026-06-01] **StunProjectile.tscn + .gd** — Rock ¥1 gift effect; 8-point Polygon2D rock on parabolic arc (ARC_HEIGHT=-145), rotation 5.5rad/s in flight, GPUParticles2D dust trail + impact burst (40 particles), screen_shake(0.35,9.0), deals 15 dmg, spawns 5-star StunIndicator (rotating 1.5s) on target; thunder sound; `fire({from_team, arena})`
+- [2026-06-01] **DebugPanel additions** — "Gift FX Test" section: Donut A/B, GiftBox A/B, Rock A→B / B→A buttons; Arena.gd 3 new spawn methods + 3 ShieldBubble/SpikeExplosion/StunProjectile preloads
+
+---
+
 ## In Progress 🔄
 
 - Phase 2-D: Boss Clear Rewards ✅ Complete — Phase 2 fully done
@@ -282,51 +289,125 @@
   - No .tscn — fully code-driven, instanced from SessionStats on first GAME_OVER
 
 ### B. Stretch Goals
-- [ ] **StretchGoal.gd** (AutoLoad)
-  - Multiple tiers: $30, $60, $100, $150, $200
-  - Per tier: unlock effect, unlock boss phase, unlock character theme
-  - Progress bar prominent on-screen
-  - Announcement when tier unlocked
-
-- [ ] **StretchGoalUI.tscn**
-  - Large progress bar center-right
-  - "Next goal: $50" label
-  - Real-time update on donation
+- [x] **StretchGoal.gd** (AutoLoad) + **StretchGoalUI** (code-driven) — 2026-06-01
+  - 5 tiers at 50/100/200/500/1000 donation pts
+  - Each tier fires a real gameplay effect:
+    - 50pts  "Extra Visual Effects" → +20% ATK both teams 60s
+    - 100pts "Boss Rush!"           → BossManager.request_spawn()
+    - 200pts "Dragon Awakening"     → +200HP both + +50% ATK 45s
+    - 500pts "Legendary Mode"       → +500HP both + +100% ATK 90s
+    - 1000pts "ULTIMATE EVENT!"     → UltimateController fires both teams
+  - UI: right strip x=1548, y=282; 5 tier cells (locked/✓), large progress bar, pts counter, next-tier label
+  - Unlock announcement: overlay (layer=14), slide-in panel with tier title+desc, flash + fade in 3s
+  - register_arena() wired from Arena._ready(); goal_tier_unlocked signal for other listeners
+  - Resets on GameManager WAITING state
 
 ### C. Infinite Boss Loop Pacing
-- [ ] **Adjust duel phase duration**
-  - After each boss: 3-4 minute duel before next boss
-  - Allows player leveling between phases
-  - Scaling: Higher boss level = longer duel (farming time)
+- [x] **Adjust duel phase duration** — 2026-06-01
+  - `get_duel_interval(boss_level)`: 180s at Lv1, +30s/level, capped at 300s (5 min)
+    - Lv1=180s | Lv2=210s | Lv3=240s | Lv4=270s | Lv5+=300s
+  - Replaces old fixed `AUTO_SPAWN_INTERVAL=240s`
+  - Close-match early trigger scaled to `interval × 0.35` min wait (was hardcoded 60s)
+  - `_duel_interval` recalculated after every boss_defeated and boss_timed_out
+  - `signal duel_phase_started(interval_secs)` emitted when duel resumes
+  - Countdown HUD (CanvasLayer layer=3, center x=820, y=74, w=280):
+    - "BOSS Lv.X" label + draining bar (green→yellow→red) + "M:SS" countdown
+    - Visible only during duel phase (IDLE + game_active); hidden during boss
 
 ---
 
 ## Todo — Phase 6 (Visual Polish & Character Theming) ❌
 
 ### A. Character-Specific Ultimate Visuals
-- [ ] **Update UltimateEffect.gd to support team-specific videos**
-  - Dark dragon (Team A): Abyss Awakening video
-  - Light dragon (Team B): Celestial Blessing video
-  - Load correct OGV based on `attacker_team`
+- [x] **Update UltimateEffect.gd to support team-specific videos** — 2026-06-01
+  - `VIDEO_PATHS` dict: team_a → abyss_awakening_a.ogv, team_b → abyss_awakening_b.ogv
+  - `_start_playback()` uses `VIDEO_PATHS.get(attacker_team)` instead of template string
+  - `_fit_video_to_sprite()` repositions VideoStreamPlayer to match CharacterBackground sprite rect
 
-- [ ] **Background Character Display**
-  - Team A background: Dark character standing (left side)
-  - Team B background: Light character standing (right side)
-  - On ultimate: switch to ultimate_pose.png, hold 5.5 sec, return to idle
+- [x] **Background Character Display** — 2026-06-01
+  - `CharacterBackground.tscn` instanced in Arena.tscn (was missing — group calls were no-ops)
+  - TeamA_Bg/CharBg + TeamB_Bg/CharBg each fill one half of the screen (960×1080 each), CanvasLayer=-1
+  - Idle: loads `assets/characters/{team}/bg_idle.jpg` at alpha 0.55 on _ready()
+  - Ultimate pose: swaps to `ultimate_pose.jpg`, tweens alpha 0.55→0.85 in 0.15 s
+  - Return to idle: swaps back, tweens alpha 0.85→0.55 in 0.30 s (called by UltimateEffect after effect finishes)
 
 ### B. Boss Theming
-- [ ] **Boss visual variants**
-  - Early levels (1-3): Base boss design
-  - Mid levels (4-6): Enhanced visuals (more details, glow)
-  - Late levels (7+): Menacing design (darker, bigger)
-  - Color progression: white → gold → red → black (?)
+- [x] **Boss visual variants** — 2026-06-01
+  - `_get_tier_data()` returns a dict of body_w/h, colors, aura, hp_bar_w per bracket
+  - **AWAKENED** (Lv1-3): 280×110 body, blue/red split, white divider — base look
+  - **ENRAGED** (Lv4-6): 330×130 body, gold divider + gold label, static gold aura backdrop, entrance shake 7.0 + golden flash
+  - **APOCALYPSE** (Lv7+): 380×155 body, dark purple/blood-red split, red divider, pulsing red aura (sin wave in _process), entrance shake 14.0 + dark purple flash
+  - Tier badge subtitle "— AWAKENED / ENRAGED / APOCALYPSE —" rendered inside boss body
+  - HP bar width scales with tier (320 → 360 → 400 px)
+  - `_refresh_hp_bar()` reads `_tier["hp_bar_w"]` instead of hardcoded const
+  - `_spawn_entrance_flash(color, duration)` helper — CanvasLayer layer=18 full-screen rect, fades out
 
 ### C. Screen Shake & Feedback
-- [ ] **Intensity scaling with boss level**
-  - Lv1 boss attack: light shake (0.1 intensity)
-  - Lv5 boss attack: medium shake (0.3 intensity)
-  - Lv10 boss attack: heavy shake (0.5 intensity)
-  - Ultimate hit: very heavy (0.8 intensity)
+- [x] **Intensity scaling with boss level** — 2026-06-01
+  - `SHAKE_INTENSITY_MIN=3.0` (Lv1, spec 0.1) → `SHAKE_INTENSITY_MAX=14.0` (Lv10, spec 0.5)
+  - `SHAKE_DURATION_MIN=0.25s` → `SHAKE_DURATION_MAX=0.45s` — also lerped with level
+  - Formula: `t = clamp((level-1)/9, 0, 1)` → `lerp(min, max, t)` for both intensity and duration
+  - Old formula `level × 2.5 + 2.0` reached 27px at Lv10 (overshoot); now capped at 14px
+  - **Ultimate hit**: `SHAKE_HIT_INTENSITY=22.0px` (was 18), `SHAKE_HIT_DURATION=0.65s` (was 0.6) — spec 0.8 normalized
+  - **Parry**: `SHAKE_PARRY_INTENSITY=4.0px` (was 5) — more distinct contrast vs full hit
+  - Shake constants extracted to `const` in both `Boss.gd` and `UltimateEffect.gd`
+
+---
+
+## Todo — Phase 8 (Neutral Effects — Chaos System) ❌
+
+### Overview
+Effects triggered by TikTok gifts that hit **all avatars on both teams simultaneously**.
+Full design spec in `docs/DESIGN.md` → "Neutral Effects System" section.
+
+### A. Electric Storm ⚡ *(ice_cream neutral variant)*
+- [x] **ElectricStorm.tscn + ElectricStorm.gd** — 2026-06-02
+  - Timer 0.35s fires 14 strikes over 5s across random arena positions
+  - Hit: 12 DMG to nearest avatar within 75px; 25% chance stun 1.0s
+  - Chain: if second avatar within 120px → 8 DMG one-hop
+  - Reuse LightningAttackEffect zigzag Line2D visual + cyan bolt shader
+  - Ambient: drifting lightning-static GPUParticles2D backdrop
+  - `fire({arena})` Dictionary API
+
+### B. Meteor Shower ☄️ *(rose_bouquet neutral variant)*
+- [ ] **MeteorShower.tscn + MeteorShower.gd**
+  - Spawn 10–14 MeteorProjectile nodes, random x (50–1870), y=-80
+  - Each falls speed 700–950 px/s, slight x drift
+  - Hit radius 55px → 18 DMG + knockback 220px random direction
+  - Fireball: orange Polygon2D + red glow shader + GPUParticles2D trail
+  - Impact: burst explosion, screen_shake(0.25, 5.0)
+  - `fire({arena})` Dictionary API
+
+### C. Black Hole Pull 🌀 *(universe alternate)*
+- [ ] **BlackHolePull.tscn + BlackHolePull.gd**
+  - Spawns at arena center (960, 540)
+  - Pull phase 3s: add velocity toward center PULL_FORCE=280 px/s² (ramp 0→280 over 1.5s)
+  - Explosion phase 1s: 30 DMG + knockback 600px outward to all within 500px
+  - Visual: black sphere + purple neon glow ring shader + spiraling GPUParticles2D
+  - Explosion: purple ring expands 0→520px; full-screen dark purple flash alpha 0.4
+  - screen_shake(0.65, 16.0) on explosion
+  - `fire({arena})` Dictionary API
+
+### D. Toxic Flood ☠️ *(3× consecutive gift trigger)*
+- [ ] **ToxicFlood.tscn + ToxicFlood.gd**
+  - Duration: 8s active + 2s dissipate
+  - DoT: Arena.damage_all_alive(3, "toxic") every 0.5s (skips respawning)
+  - Damage type "toxic" bypasses ATK multiplier buffs
+  - Death from toxic: killer_id = "toxic_flood" (normal respawn)
+  - Visual: green semi-transparent arena overlay (alpha 0.25, CanvasLayer layer=1)
+  - GPUParticles2D: 150 green bubbles rising from floor, lifetime 2s
+  - Damage numbers: green "-3" small font per tick per avatar
+  - `fire({arena})` Dictionary API
+
+### E. Arena Integration
+- [x] **Arena.gd: spawn_electric_storm()** — 2026-06-02
+  - preload ElectricStormScene + `spawn_electric_storm()` method
+  - `get_all_alive_avatars() -> Array[Node]` helper (used by ElectricStorm hit detection)
+- [x] **GameManager.gd: neutral_effect_requested signal** — 2026-06-02
+  - Signal added to contract
+- [x] **DebugPanel: "⚡ Electric Storm" button** — 2026-06-02
+  - Code-driven button appended to VBox in _ready(); calls Arena.spawn_electric_storm()
+- [ ] **Dispatcher spawn_neutral_effect(name, data)** — for Meteor / BlackHole / Toxic (Phase 8B-D)
 
 ---
 

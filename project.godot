@@ -27,6 +27,7 @@ UltimateCharger="*res://autoload/UltimateCharger.gd"
 Leaderboard="*res://autoload/Leaderboard.gd"
 StreamerFeed="*res://autoload/StreamerFeed.gd"
 SessionStats="*res://autoload/SessionStats.gd"
+StretchGoal="*res://autoload/StretchGoal.gd"
 
 [display]
 

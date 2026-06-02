@@ -5,7 +5,3 @@
 [node name="Main" type="Node" unique_id=466801955]
 
 [node name="Arena" parent="." unique_id=1892876207 instance=ExtResource("1_arena")]
-zone_a = null
-zone_b = null
-max_avatars_per_zone = null
-match_duration = null

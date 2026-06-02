@@ -10,16 +10,15 @@ const TEAM_SHADOW_COLOR: Dictionary = {
 }
 const MAX_HP: int = 1000  # Fallback only; runtime uses PlayerStats level-based HP
 const BASE_SCALE: float = 0.22
-const EXP_BAR_WIDTH: float = 24.0
 const ATTACK_INTERVAL: float = 1.5
 const SPEED_MIN: float = 90.0
 const SPEED_MAX: float = 200.0
 const AVATAR_RADIUS: float = 14.0
-const HP_BAR_WIDTH: float = 24.0
 const RESPAWN_TIME: float = 3.0
 
 const DamageNumberScene := preload("res://effects/DamageNumber.tscn")
 const AvatarStatsScript = preload("res://scenes/AvatarStats.gd")
+const CircularBarsScript = preload("res://scenes/CircularBars.gd")
 
 signal avatar_died(avatar: Node, team: int)
 
@@ -28,7 +27,7 @@ signal avatar_died(avatar: Node, team: int)
 @onready var glow_sprite: Sprite2D = $FloatPivot/GlowSprite
 @onready var avatar_sprite: Sprite2D = $FloatPivot/AvatarSprite
 @onready var username_label: Label = $UsernameLabel
-@onready var hp_bar_fill: ColorRect = $HPBarRoot/HPBarFill
+@onready var lv_label: Label = $LvLabel
 
 var _team: int = 1
 var _float_time: float = 0.0
@@ -48,11 +47,12 @@ var player_id: String = ""
 var _last_killer_id: String = ""
 var _team_color: Color = Color.WHITE
 var _avatar_stats: Node = null
-var _exp_bar_fill: ColorRect = null
+var _circular_bars: Node2D = null
 var _respawning: bool = false
 var _respawn_timer: float = 0.0
 var _countdown_label: Label = null
 var _boss_phase: bool = false
+var _stunned: bool = false
 
 func _ready() -> void:
 	http_request.request_completed.connect(_on_request_completed)
@@ -61,7 +61,8 @@ func _ready() -> void:
 	add_child(_avatar_stats)
 	_avatar_stats.level_up_visual.connect(_on_level_up_visual)
 	_avatar_stats.exp_updated.connect(_on_exp_updated)
-	_exp_bar_fill = _create_exp_bar()
+	_circular_bars = CircularBarsScript.new()
+	add_child(_circular_bars)
 	scale = Vector2.ZERO
 	var tween := create_tween()
 	tween.tween_property(self, "scale", Vector2.ONE, 0.3) \
@@ -89,6 +90,7 @@ func setup(p_username: String, p_team: int, avatar_url: String, p_arena: Node = 
 	_avatar_stats.initialize(player_id)
 	current_hp = _avatar_stats.get_max_hp()
 	float_pivot.scale = Vector2.ONE * BASE_SCALE * _avatar_stats.get_size_scale()
+	lv_label.text = "Lv.%d" % _avatar_stats.current_level
 	_refresh_hp_bar()
 	_refresh_exp_bar()
 
@@ -112,6 +114,9 @@ func set_boss_phase(active: bool) -> void:
 	_boss_phase = active
 	if active:
 		_velocity = Vector2.ZERO  # Freeze in place during boss phase
+	else:
+		var angle := randf_range(0.0, TAU)
+		_velocity = Vector2(cos(angle), sin(angle)) * _base_speed
 
 func heal(amount: int) -> void:
 	if not _alive or _respawning:
@@ -120,16 +125,25 @@ func heal(amount: int) -> void:
 	current_hp = mini(max_hp, current_hp + amount)
 	_refresh_hp_bar()
 	_spawn_heal_number(amount)
-	# Flash HP bar green then return to normal
-	var hp_tween := create_tween()
-	hp_tween.tween_property(hp_bar_fill, "color", Color(0.0, 1.0, 0.35, 1.0), 0.1)
-	hp_tween.tween_interval(0.3)
-	hp_tween.tween_callback(_refresh_hp_bar)
+	if is_instance_valid(_circular_bars):
+		_circular_bars.flash_hp_green()
 	# Green glow ring flash
 	var glow_tween := create_tween()
 	glow_tween.tween_method(_set_glow_color, _team_color, Color(0.1, 1.0, 0.3, 1.0), 0.15)
 	glow_tween.tween_interval(0.35)
 	glow_tween.tween_method(_set_glow_color, Color(0.1, 1.0, 0.3, 1.0), _team_color, 0.45)
+
+func stun(duration: float) -> void:
+	if not _alive or _respawning:
+		return
+	_stunned = true
+	_velocity = Vector2.ZERO
+	_is_attacking = false
+	await get_tree().create_timer(duration).timeout
+	_stunned = false
+	if is_instance_valid(self) and _alive and not _respawning:
+		var angle := randf_range(0.0, TAU)
+		_velocity = Vector2(cos(angle), sin(angle)) * _base_speed
 
 func knockback(force: Vector2) -> void:
 	if _respawning:
@@ -140,10 +154,19 @@ func knockback(force: Vector2) -> void:
 func take_damage(amount: int, killer_id: String = "") -> void:
 	if not _alive:
 		return
+	# Let active shields absorb damage first (innermost stack first)
+	var dmg := amount
+	for child in get_children():
+		if dmg <= 0:
+			break
+		if child.is_in_group("shield_bubble") and child.has_method("absorb_damage"):
+			dmg = child.absorb_damage(dmg)
+	if dmg <= 0:
+		return
 	_last_killer_id = killer_id
-	current_hp = maxi(0, current_hp - amount)
+	current_hp = maxi(0, current_hp - dmg)
 	_refresh_hp_bar()
-	_spawn_damage_number(amount)
+	_spawn_damage_number(dmg)
 	if current_hp == 0:
 		die()
 
@@ -158,6 +181,10 @@ func die() -> void:
 			_arena_ref.spawn_exp_gain_text(global_position, reward)
 		_arena_ref.add_score(3 - _team, 1)
 	PlayerStats.on_kill(_last_killer_id, player_id)
+	# Player kill (not boss) charges the killer's team ultimate meter
+	if _last_killer_id != "" and _last_killer_id != "boss":
+		var killer_team_key := "team_a" if (3 - _team) == 1 else "team_b"
+		UltimateCharger.add_charge(killer_team_key, 2.0)
 	_start_respawn()
 
 func _process(delta: float) -> void:
@@ -167,16 +194,18 @@ func _process(delta: float) -> void:
 			sin(_float_time * 0.6 + 1.0) * _float_amp * 0.4,
 			sin(_float_time) * _float_amp
 		)
+	if is_instance_valid(_circular_bars):
+		_circular_bars.position = float_pivot.position
 	if _respawning:
 		_respawn_timer -= delta
 		_update_respawn_countdown()
 		if _respawn_timer <= 0.0:
 			_finish_respawn()
 		return  # Frozen during respawn — no physics, no attack
-	if _zone_rect.size != Vector2.ZERO and not _boss_phase:
+	if _zone_rect.size != Vector2.ZERO and not _boss_phase and not _stunned:
 		_update_physics(delta)
 	if _alive and _arena_ref and (_arena_ref.game_active or _arena_ref.is_boss_phase):
-		if not _is_attacking:
+		if not _is_attacking and not _stunned:
 			_attack_timer -= delta
 			if _attack_timer <= 0.0:
 				_do_attack()
@@ -212,6 +241,7 @@ func _do_attack() -> void:
 
 	_is_attacking = true
 	var dmg_mult: float = _arena_ref.get_attack_mult(_team)
+	var base_dmg: int = int(_avatar_stats.get_damage()) if _avatar_stats else 10
 	# During boss phase use basic attacks only (no chain/laser to avoid targeting allies)
 	var roll: int
 	if _arena_ref.is_boss_phase:
@@ -219,14 +249,20 @@ func _do_attack() -> void:
 	elif _arena_ref.debug_attack_mode >= 0:
 		roll = _arena_ref.debug_attack_mode
 	else:
-		roll = randi() % 3
+		roll = randi() % 6
 	match roll:
 		0:
-			_arena_ref.spawn_attack_effect(global_position, enemy.global_position, enemy, on_attack_done, dmg_mult)
+			_arena_ref.spawn_attack_effect(global_position, enemy.global_position, enemy, on_attack_done, dmg_mult, player_id, base_dmg)
 		1:
-			_arena_ref.spawn_laser_attack(self, enemy, on_attack_done, dmg_mult)
+			_arena_ref.spawn_laser_attack(self, enemy, on_attack_done, dmg_mult, base_dmg)
 		2:
-			_arena_ref.spawn_lightning_attack(self, enemy, _team, on_attack_done, dmg_mult)
+			_arena_ref.spawn_lightning_attack(self, enemy, _team, on_attack_done, dmg_mult, base_dmg)
+		3:
+			_arena_ref.spawn_shield_bubble(self, on_attack_done)
+		4:
+			_arena_ref.spawn_spikes_attack(self, _team, on_attack_done, dmg_mult, base_dmg)
+		5:
+			_arena_ref.spawn_stun_projectile_attack(self, enemy, on_attack_done, dmg_mult, base_dmg)
 
 func on_attack_done() -> void:
 	if not _alive:
@@ -239,6 +275,10 @@ func on_attack_done() -> void:
 func _start_respawn() -> void:
 	_respawning = true
 	_velocity = Vector2.ZERO
+	# Remove all active shield layers on death
+	for child in get_children():
+		if child.is_in_group("shield_bubble"):
+			child.queue_free()
 	# Sync visual to the new (lower) level immediately
 	var new_level := PlayerStats.get_level(player_id)
 	_avatar_stats.current_level = new_level
@@ -247,7 +287,7 @@ func _start_respawn() -> void:
 	var fade_tween := create_tween()
 	fade_tween.tween_property(self, "modulate", Color(1.0, 1.0, 1.0, 0.4), 0.35)
 	# Shrink size to new level
-	var new_scale := Vector2.ONE * BASE_SCALE * _avatar_stats.get_size_scale()
+	var new_scale: Vector2 = Vector2.ONE * BASE_SCALE * _avatar_stats.get_size_scale()
 	var sz_tween := create_tween()
 	sz_tween.tween_property(float_pivot, "scale", new_scale, 0.35) \
 		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
@@ -300,9 +340,10 @@ func _finish_respawn() -> void:
 
 func _on_level_up_visual(new_level: int) -> void:
 	current_hp = _avatar_stats.get_max_hp()
+	lv_label.text = "Lv.%d" % new_level
 	_refresh_hp_bar()
 	_refresh_exp_bar()
-	var target_scale := Vector2.ONE * BASE_SCALE * _avatar_stats.get_size_scale()
+	var target_scale: Vector2 = Vector2.ONE * BASE_SCALE * _avatar_stats.get_size_scale()
 	var sz_tween := create_tween()
 	sz_tween.tween_property(float_pivot, "scale", target_scale, 0.4) \
 		.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
@@ -320,22 +361,6 @@ func _set_glow_color(c: Color) -> void:
 		glow_sprite.material.set_shader_parameter("glow_color", c)
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
-
-func _create_exp_bar() -> ColorRect:
-	var root := Node2D.new()
-	root.position = Vector2(0, -13)
-	add_child(root)
-	var bg := ColorRect.new()
-	bg.position = Vector2(-12.0, -1.0)
-	bg.size = Vector2(EXP_BAR_WIDTH, 2.0)
-	bg.color = Color(0.04, 0.04, 0.04, 0.75)
-	root.add_child(bg)
-	var fill := ColorRect.new()
-	fill.position = Vector2(-12.0, -1.0)
-	fill.size = Vector2(0.0, 2.0)
-	fill.color = Color(1.0, 0.78, 0.0, 0.9)
-	root.add_child(fill)
-	return fill
 
 func _spawn_heal_number(amount: int) -> void:
 	if not _arena_ref or not is_instance_valid(_arena_ref):
@@ -367,19 +392,15 @@ func _spawn_damage_number(amount: int) -> void:
 	dmg_num.show_number(amount)
 
 func _refresh_hp_bar() -> void:
+	if not is_instance_valid(_circular_bars):
+		return
 	var max_hp: int = _avatar_stats.get_max_hp() if _avatar_stats else MAX_HP
-	var ratio := float(current_hp) / float(max_hp)
-	hp_bar_fill.size.x = HP_BAR_WIDTH * ratio
-	hp_bar_fill.color = Color(
-		lerpf(0.15, 0.9, 1.0 - ratio),
-		lerpf(0.15, 0.88, ratio),
-		0.15, 1.0
-	)
+	_circular_bars.set_hp(float(current_hp) / float(max_hp))
 
 func _refresh_exp_bar() -> void:
-	if not _exp_bar_fill or not _avatar_stats:
+	if not is_instance_valid(_circular_bars) or not _avatar_stats:
 		return
-	_exp_bar_fill.size.x = EXP_BAR_WIDTH * _avatar_stats.get_exp_progress()
+	_circular_bars.set_exp(_avatar_stats.get_exp_progress())
 
 func _make_mock_texture(team_color: Color) -> ImageTexture:
 	const SIZE := 128

@@ -7,6 +7,8 @@ extends Node2D
 
 const IDLE_PATH := "res://assets/characters/{team}/bg_idle.jpg"
 const ULTIMATE_PATH := "res://assets/characters/{team}/ultimate_pose.jpg"
+const IDLE_ALPHA := 0.55
+const ULTIMATE_ALPHA := 0.85
 
 func _ready() -> void:
 	add_to_group("character_bg")
@@ -48,14 +50,14 @@ func play_ultimate_pose(team: String) -> void:
 	var sprite := team_a_sprite if team == "team_a" else team_b_sprite
 	_try_set_texture(sprite, ULTIMATE_PATH.format({"team": team}))
 	var tween := create_tween()
-	tween.tween_property(sprite, "modulate:a", 0.8, 0.1)
+	tween.tween_property(sprite, "modulate:a", ULTIMATE_ALPHA, 0.15)
 
 func return_to_idle(team: String) -> void:
 	# Fade back to idle texture after ultimate ends
 	var sprite := team_a_sprite if team == "team_a" else team_b_sprite
 	_try_set_texture(sprite, IDLE_PATH.format({"team": team}))
 	var tween := create_tween()
-	tween.tween_property(sprite, "modulate:a", 1.0, 0.2)
+	tween.tween_property(sprite, "modulate:a", IDLE_ALPHA, 0.3)
 
 func _try_set_texture(sprite: TextureRect, path: String) -> void:
 	# Only load if asset file exists to avoid errors on missing placeholders

@@ -5,7 +5,6 @@ extends Node
 ## so all behaviour tested here is identical to a live TikTok session.
 
 @export var auto_start: bool = true
-@export var auto_restart: bool = true
 @export_range(0.5, 5.0, 0.1) var spawn_min: float = 1.0
 @export_range(0.5, 8.0, 0.1) var spawn_max: float = 3.0
 @export_range(2.0, 30.0, 0.5) var gift_interval: float = 5.0
@@ -25,12 +24,10 @@ var _spawn_t: float = 0.0
 var _gift_t: float = 0.0
 var _ult_t: float = 0.0
 var _event_count: int = 0
-var _restart_gen: int = 0   # incremented on start() to cancel stale auto-restarts
 
 # ── Lifecycle ────────────────────────────────────────────────────────────────
 
 func _ready() -> void:
-	_arena.game_over.connect(_on_game_over)
 	_log("Ready  auto_start=%s  spawn=[%.1f,%.1f]s  gift=%.1fs  ult=%.1fs" % [
 		auto_start, spawn_min, spawn_max, gift_interval, ultimate_interval
 	])
@@ -60,17 +57,13 @@ func _process(delta: float) -> void:
 # ── Public API ───────────────────────────────────────────────────────────────
 
 func start() -> void:
-	_restart_gen += 1
-	var win_screen := _arena.get_node_or_null("WinScreen")
-	if win_screen:
-		win_screen.dismiss()
 	_event_count = 0
 	_spawn_t = randf_range(spawn_min, spawn_max)
 	_gift_t = gift_interval
 	_ult_t = ultimate_interval
 	_running = true
 	_arena.start_game()
-	_log("─── Demo START (gen=%d) ───────────────────────────────" % _restart_gen)
+	_log("─── Demo START ────────────────────────────────────────")
 
 func stop() -> void:
 	_running = false
@@ -98,20 +91,6 @@ func _do_ultimate() -> void:
 	_log("[ULTIMATE] Team %s ULTIMATE!!! →  Team %s  ★★★" % ["A" if from == 1 else "B", to_s])
 	_arena.on_gift(_rnd(), "universe", "", from)
 	_event_count += 1
-
-# ── Game-over handler ────────────────────────────────────────────────────────
-
-func _on_game_over(winner: int) -> void:
-	stop()
-	var result: String = ["DRAW", "TEAM A WINS", "TEAM B WINS"][winner]
-	_log("═══ GAME OVER: %s  (total events: %d) ═══" % [result, _event_count])
-	if auto_restart:
-		var gen := _restart_gen
-		await get_tree().create_timer(5.0).timeout
-		# Guard: skip if start() was called externally (e.g. DebugPanel Reset)
-		if is_inside_tree() and gen == _restart_gen:
-			_log("Auto-restarting...")
-			start()
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
 

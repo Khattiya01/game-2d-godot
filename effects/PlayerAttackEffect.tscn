@@ -1,63 +1,71 @@
 [gd_scene format=3 uid="uid://cn5r8qw2txbf6"]
 
-[ext_resource type="Script" path="res://effects/PlayerAttackEffect.gd" id="1_attackScript"]
-[ext_resource type="AudioStream" path="res://assets/sounds/gunshot_attack01.wav" id="2_gunshot"]
+[ext_resource type="Script" uid="uid://dm4saqs7bkwp3" path="res://effects/PlayerAttackEffect.gd" id="1_attackScript"]
+[ext_resource type="AudioStream" uid="uid://g0t28ehv08c1" path="res://assets/sounds/gunshot_attack01.mp3" id="2_i2xdg"]
 
 [sub_resource type="Shader" id="Shader_dot"]
-code = "shader_type canvas_item;\nuniform vec4 core_color : source_color = vec4(0.92, 0.98, 1.0, 1.0);\nuniform vec4 glow_color : source_color = vec4(0.3, 0.85, 1.0, 1.0);\n\nvoid fragment() {\n\tvec2 uv = UV * 2.0 - 1.0;\n\tfloat dist = length(uv);\n\tfloat core = 1.0 - smoothstep(0.05, 0.38, dist);\n\tfloat glow = pow(max(0.0, 1.0 - dist * 0.9), 4.0) * 0.8;\n\tfloat alpha = clamp(core + glow, 0.0, 1.0);\n\tvec3 col = mix(glow_color.rgb, core_color.rgb, clamp(core, 0.0, 1.0));\n\tCOLOR = vec4(col, alpha);\n}\n"
+code = "shader_type canvas_item;
+uniform vec4 core_color : source_color = vec4(0.92, 0.98, 1.0, 1.0);
+uniform vec4 glow_color : source_color = vec4(0.3, 0.85, 1.0, 1.0);
+
+void fragment() {
+	vec2 uv = UV * 2.0 - 1.0;
+	float dist = length(uv);
+	float core = 1.0 - smoothstep(0.05, 0.38, dist);
+	float glow = pow(max(0.0, 1.0 - dist * 0.9), 4.0) * 0.8;
+	float alpha = clamp(core + glow, 0.0, 1.0);
+	vec3 col = mix(glow_color.rgb, core_color.rgb, clamp(core, 0.0, 1.0));
+	COLOR = vec4(col, alpha);
+}
+"
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_dot"]
 shader = SubResource("Shader_dot")
+shader_parameter/core_color = Color(0.92, 0.98, 1, 1)
+shader_parameter/glow_color = Color(0.3, 0.85, 1, 1)
 
 [sub_resource type="PlaceholderTexture2D" id="PlaceholderTexture2D_dot"]
-size = Vector2(24, 24)
+size = Vector2(48, 48)
 
 [sub_resource type="CanvasItemMaterial" id="CanvasItemMaterial_add"]
 blend_mode = 1
 
 [sub_resource type="Gradient" id="Gradient_trail"]
-offsets = PackedFloat32Array(0.0, 1.0)
-colors = PackedColorArray(0.5, 0.95, 1.0, 1.0, 0.2, 0.6, 1.0, 0.0)
+colors = PackedColorArray(0.5, 0.95, 1, 1, 0.2, 0.6, 1, 0)
 
 [sub_resource type="GradientTexture1D" id="GradientTexture1D_trail"]
 gradient = SubResource("Gradient_trail")
 width = 64
 
 [sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_trail"]
-direction = Vector3(-1.0, 0.0, 0.0)
+direction = Vector3(-1, 0, 0)
 spread = 18.0
-gravity = Vector3(0.0, 0.0, 0.0)
-initial_velocity_min = 15.0
-initial_velocity_max = 35.0
-scale_min = 0.3
-scale_max = 0.7
+initial_velocity_min = 25.0
+initial_velocity_max = 60.0
+gravity = Vector3(0, 0, 0)
+scale_min = 0.7
+scale_max = 1.4
 color_ramp = SubResource("GradientTexture1D_trail")
 
-[sub_resource type="QuadMesh" id="QuadMesh_trail"]
-size = Vector2(5.0, 5.0)
-
-[node name="PlayerAttackEffect" type="Node2D"]
+[node name="PlayerAttackEffect" type="Node2D" unique_id=742969454]
 z_index = 4
 script = ExtResource("1_attackScript")
 
-[node name="ShotSound" type="AudioStreamPlayer2D" parent="."]
-stream = ExtResource("2_gunshot")
+[node name="ShotSound" type="AudioStreamPlayer2D" parent="." unique_id=1295849180]
+stream = ExtResource("2_i2xdg")
 volume_db = -4.0
 max_distance = 3000.0
 
-[node name="Projectile" type="Node2D" parent="."]
+[node name="Projectile" type="Node2D" parent="." unique_id=1575030298]
 
-[node name="ProjectileSprite" type="Sprite2D" parent="Projectile"]
+[node name="ProjectileSprite" type="Sprite2D" parent="Projectile" unique_id=1332960931]
 material = SubResource("ShaderMaterial_dot")
 texture = SubResource("PlaceholderTexture2D_dot")
 
-[node name="TrailParticles" type="GPUParticles2D" parent="Projectile"]
+[node name="TrailParticles" type="GPUParticles2D" parent="Projectile" unique_id=1810032323]
 material = SubResource("CanvasItemMaterial_add")
-amount = 15
-lifetime = 0.25
-explosiveness = 0.0
-randomness = 0.1
-local_coords = false
 emitting = false
+amount = 25
+lifetime = 0.25
+randomness = 0.1
 process_material = SubResource("ParticleProcessMaterial_trail")
-draw_pass_1 = SubResource("QuadMesh_trail")

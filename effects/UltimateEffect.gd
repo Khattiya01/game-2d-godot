@@ -5,10 +5,17 @@ extends Node2D
 @onready var screen_flash_rect: ColorRect = $ScreenFlash/FlashRect
 @onready var final_shockwave: Line2D = $FinalShockwave
 
-const VIDEO_PATH_TEMPLATE := "res://assets/videos/ultimate/abyss_awakening_{team}.ogv"
+const VIDEO_PATHS := {
+	"team_a": "res://assets/videos/ultimate/abyss_awakening_a.ogv",
+	"team_b": "res://assets/videos/ultimate/abyss_awakening_b.ogv"
+}
 const FinalShockwaveAScene := preload("res://effects/FinalShockwaveA.tscn")
 const FinalShockwaveBScene := preload("res://effects/FinalShockwaveB.tscn")
-const ULTIMATE_DAMAGE := 500
+
+# Shake values: spec 0.8 normalized → 22 px hit; parry is noticeably weaker.
+const SHAKE_HIT_INTENSITY   := 22.0
+const SHAKE_PARRY_INTENSITY := 4.0
+const SHAKE_HIT_DURATION    := 0.65
 
 signal finished
 
@@ -54,9 +61,8 @@ func _fit_video_to_sprite() -> void:
 	video_player.size = sprite.size
 
 func _start_playback() -> void:
-	# Play video with its own audio track; file suffix is "a"/"b" not full team string
-	var team_letter := "a" if attacker_team == "team_a" else "b"
-	var video_file := VIDEO_PATH_TEMPLATE.format({"team": team_letter})
+	# Play team-specific video with embedded audio
+	var video_file: String = VIDEO_PATHS.get(attacker_team, VIDEO_PATHS["team_a"])
 	video_player.stream = load(video_file)
 	video_player.play()
 
@@ -89,20 +95,25 @@ func _show_impact(pos: Vector2) -> void:
 		get_parent().add_child(sw)
 		sw.play(pos)
 
-	# Apply counter-ultimate reduction before dealing damage
+	# Ultimate damage = sum of all alive attackers' base damage × power multiplier
+	const ULTIMATE_POWER_MULT: float = 8.0
 	var target_team := 3 - _from_team_int
+	var base_dmg: int = 10
+	if _arena_ref and _arena_ref.has_method("get_team_total_damage"):
+		base_dmg = _arena_ref.get_team_total_damage(_from_team_int)
 	var mult := CounterUltimate.get_damage_multiplier()
-	var damage := int(float(ULTIMATE_DAMAGE) * mult)
-	if _arena_ref and _arena_ref.has_method("damage_team_all"):
-		_arena_ref.damage_team_all(target_team, damage)
+	var damage := int(float(base_dmg) * mult * ULTIMATE_POWER_MULT)
+	if _arena_ref and _arena_ref.has_method("damage_team_all_ultimate"):
+		_arena_ref.damage_team_all_ultimate(target_team, _from_team_int, damage)
+	print("[UltimateEffect] team=%d  base_dmg=%d  mult=%.2f  final=%d" % [_from_team_int, base_dmg, mult, damage])
 
 	# Outcome text: "HIT!" if no counter, "PARRIED!" already shown at spacebar press
 	if mult >= 1.0:
 		_show_outcome_text("HIT!", Color(1.0, 0.22, 0.22, 1.0))
 
-	var shake := 18.0 if mult >= 1.0 else 5.0
+	var shake := SHAKE_HIT_INTENSITY if mult >= 1.0 else SHAKE_PARRY_INTENSITY
 	if _arena_ref and _arena_ref.has_method("screen_shake"):
-		_arena_ref.screen_shake(0.6, shake)
+		_arena_ref.screen_shake(SHAKE_HIT_DURATION, shake)
 
 func _show_outcome_text(text: String, color: Color) -> void:
 	var cl := CanvasLayer.new()

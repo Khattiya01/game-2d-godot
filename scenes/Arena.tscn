@@ -1,194 +1,248 @@
 [gd_scene format=3 uid="uid://dvlshw7saqeto"]
 
-[ext_resource type="Script" path="res://scenes/Arena.gd" id="1_arenaScript"]
-[ext_resource type="PackedScene" path="res://debug/DebugPanel.tscn" id="2_debugPanel"]
-[ext_resource type="Script" path="res://debug/DemoRunner.gd" id="3_demoRunner"]
-[ext_resource type="Script" path="res://scenes/WSConnector.gd" id="4_wsConnector"]
-[ext_resource type="PackedScene" path="res://scenes/WinScreen.tscn" id="5_winScreen"]
+[ext_resource type="Script" uid="uid://5iuyex8kpacq" path="res://scenes/Arena.gd" id="1_arenaScript"]
+[ext_resource type="PackedScene" uid="uid://cp6j31pyjcp2w" path="res://debug/DebugPanel.tscn" id="2_debugPanel"]
+[ext_resource type="Script" uid="uid://c66mxkb0mtngd" path="res://debug/DemoRunner.gd" id="3_demoRunner"]
+[ext_resource type="Script" uid="uid://cnr2bvkx84s2s" path="res://scenes/WSConnector.gd" id="4_wsConnector"]
 [ext_resource type="PackedScene" uid="uid://c5leaderui001" path="res://scenes/LeaderboardUI.tscn" id="6_leaderboard"]
+[ext_resource type="PackedScene" uid="uid://c7bghkn2pmq8x" path="res://scenes/CharacterBackground.tscn" id="7_charBg"]
 
 [sub_resource type="Shader" id="Shader_bg"]
-code = "shader_type canvas_item;\n\nuniform vec2 cell_size = vec2(80.0, 60.0);\nuniform vec4 line_color : source_color = vec4(0.1, 0.35, 0.9, 1.0);\nuniform float line_alpha = 0.18;\nuniform float line_width = 1.0;\nuniform vec4 bg_color : source_color = vec4(0.02, 0.02, 0.06, 1.0);\n\nvoid fragment() {\n\tvec2 pixel = FRAGCOORD.xy;\n\tvec2 grid = mod(pixel, cell_size);\n\tfloat h = step(cell_size.y - line_width, grid.y);\n\tfloat v = step(cell_size.x - line_width, grid.x);\n\tfloat on_line = clamp(h + v, 0.0, 1.0);\n\tCOLOR = mix(bg_color, vec4(line_color.rgb, 1.0), on_line * line_alpha);\n}\n"
+code = "shader_type canvas_item;
+
+uniform vec2 cell_size = vec2(80.0, 60.0);
+uniform vec4 line_color : source_color = vec4(0.1, 0.35, 0.9, 1.0);
+uniform float line_alpha = 0.18;
+uniform float line_width = 1.0;
+uniform vec4 bg_color : source_color = vec4(0.02, 0.02, 0.06, 1.0);
+
+void fragment() {
+	vec2 pixel = FRAGCOORD.xy;
+	vec2 grid = mod(pixel, cell_size);
+	float h = step(cell_size.y - line_width, grid.y);
+	float v = step(cell_size.x - line_width, grid.x);
+	float on_line = clamp(h + v, 0.0, 1.0);
+	COLOR = mix(bg_color, vec4(line_color.rgb, 1.0), on_line * line_alpha);
+}
+"
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_bg"]
 shader = SubResource("Shader_bg")
+shader_parameter/cell_size = Vector2(80, 60)
+shader_parameter/line_color = Color(0.1, 0.35, 0.9, 1)
+shader_parameter/line_alpha = 0.18
+shader_parameter/line_width = 1.0
+shader_parameter/bg_color = Color(0.02, 0.02, 0.06, 1)
 
 [sub_resource type="Shader" id="Shader_zone"]
-code = "shader_type canvas_item;\n\nuniform vec4 zone_color : source_color = vec4(0.0, 0.4, 1.0, 1.0);\nuniform float flip = 0.0;\n\nvoid fragment() {\n\tfloat u = mix(1.0 - UV.x, UV.x, flip);\n\tfloat alpha = pow(u, 1.5) * 0.3;\n\tCOLOR = vec4(zone_color.rgb, alpha);\n}\n"
+code = "shader_type canvas_item;
+
+uniform vec4 zone_color : source_color = vec4(0.0, 0.4, 1.0, 1.0);
+uniform float flip = 0.0;
+
+void fragment() {
+	float u = mix(1.0 - UV.x, UV.x, flip);
+	float alpha = pow(u, 1.5) * 0.3;
+	COLOR = vec4(zone_color.rgb, alpha);
+}
+"
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_teamA"]
 shader = SubResource("Shader_zone")
-shader_parameter/zone_color = Color(0.05, 0.4, 1.0, 1.0)
+shader_parameter/zone_color = Color(0.05, 0.4, 1, 1)
 shader_parameter/flip = 0.0
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_teamB"]
 shader = SubResource("Shader_zone")
-shader_parameter/zone_color = Color(1.0, 0.12, 0.05, 1.0)
+shader_parameter/zone_color = Color(1, 0.12, 0.05, 1)
 shader_parameter/flip = 1.0
 
 [sub_resource type="Shader" id="Shader_center"]
-code = "shader_type canvas_item;\n\nuniform vec4 glow_color : source_color = vec4(0.7, 0.9, 1.0, 1.0);\n\nvoid fragment() {\n\tfloat d = abs(UV.x - 0.5) * 2.0;\n\tfloat g = pow(max(0.0, 1.0 - d), 2.0);\n\tCOLOR = vec4(glow_color.rgb, g * glow_color.a);\n}\n"
+code = "shader_type canvas_item;
+
+uniform vec4 glow_color : source_color = vec4(0.7, 0.9, 1.0, 1.0);
+
+void fragment() {
+	float d = abs(UV.x - 0.5) * 2.0;
+	float g = pow(max(0.0, 1.0 - d), 2.0);
+	COLOR = vec4(glow_color.rgb, g * glow_color.a);
+}
+"
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_center"]
 shader = SubResource("Shader_center")
-shader_parameter/glow_color = Color(0.65, 0.88, 1.0, 0.85)
+shader_parameter/glow_color = Color(0.65, 0.88, 1, 0.85)
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_timer"]
-bg_color = Color(0.0, 0.0, 0.0, 0.75)
-border_width_left = 2
-border_width_top = 2
-border_width_right = 2
-border_width_bottom = 2
-border_color = Color(0.5, 0.8, 1.0, 0.9)
-corner_radius_top_left = 8
-corner_radius_top_right = 8
-corner_radius_bottom_right = 8
-corner_radius_bottom_left = 8
 content_margin_left = 20.0
 content_margin_top = 8.0
 content_margin_right = 20.0
 content_margin_bottom = 8.0
+bg_color = Color(0, 0, 0, 0.75)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.5, 0.8, 1, 0.9)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
 
-[node name="Arena" type="Node2D"]
+[node name="Arena" type="Node2D" unique_id=297471735]
 script = ExtResource("1_arenaScript")
 
-[node name="BackgroundLayer" type="CanvasLayer" parent="."]
+[node name="BackgroundLayer" type="CanvasLayer" parent="." unique_id=719521841]
 layer = -1
 
-[node name="Background" type="ColorRect" parent="BackgroundLayer"]
+[node name="Background" type="ColorRect" parent="BackgroundLayer" unique_id=532946074]
 material = SubResource("ShaderMaterial_bg")
+anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 
-[node name="TeamAGlow" type="ColorRect" parent="BackgroundLayer"]
+[node name="TeamAGlow" type="ColorRect" parent="BackgroundLayer" unique_id=137924468]
 material = SubResource("ShaderMaterial_teamA")
+anchors_preset = -1
 anchor_right = 0.5
 anchor_bottom = 1.0
 
-[node name="TeamBGlow" type="ColorRect" parent="BackgroundLayer"]
+[node name="TeamBGlow" type="ColorRect" parent="BackgroundLayer" unique_id=654301148]
 material = SubResource("ShaderMaterial_teamB")
+anchors_preset = -1
 anchor_left = 0.5
 anchor_right = 1.0
 anchor_bottom = 1.0
 
-[node name="CenterGlow" type="ColorRect" parent="BackgroundLayer"]
+[node name="CenterGlow" type="ColorRect" parent="BackgroundLayer" unique_id=1180239948]
 material = SubResource("ShaderMaterial_center")
+anchors_preset = 13
 anchor_left = 0.5
 anchor_right = 0.5
 anchor_bottom = 1.0
 offset_left = -50.0
 offset_right = 50.0
 
-[node name="CenterLine" type="ColorRect" parent="BackgroundLayer"]
+[node name="CenterLine" type="ColorRect" parent="BackgroundLayer" unique_id=766268994]
+anchors_preset = 13
 anchor_left = 0.5
 anchor_right = 0.5
 anchor_bottom = 1.0
 offset_left = -1.0
 offset_right = 1.0
-color = Color(0.8, 0.95, 1.0, 0.95)
+color = Color(0.8, 0.95, 1, 0.95)
 
-[node name="GameLayer" type="Node2D" parent="."]
+[node name="GameLayer" type="Node2D" parent="." unique_id=1155375427]
 
-[node name="UILayer" type="CanvasLayer" parent="."]
+[node name="UILayer" type="CanvasLayer" parent="." unique_id=73812920]
 layer = 10
 
-[node name="ScoreA" type="Label" parent="UILayer"]
+[node name="ScoreA" type="Label" parent="UILayer" unique_id=1017680881]
+anchors_preset = -1
 anchor_right = 0.5
 offset_left = 60.0
 offset_top = 20.0
 offset_right = -60.0
 offset_bottom = 140.0
-text = "0"
-horizontal_alignment = 1
-theme_override_font_sizes/font_size = 96
-theme_override_colors/font_color = Color(0.3, 0.6, 1.0, 1.0)
-theme_override_colors/font_outline_color = Color(0.0, 0.1, 0.3, 1.0)
-theme_override_colors/font_shadow_color = Color(0.0, 0.35, 1.0, 0.7)
-theme_override_constants/outline_size = 2
+theme_override_colors/font_color = Color(0.3, 0.6, 1, 1)
+theme_override_colors/font_shadow_color = Color(0, 0.35, 1, 0.7)
+theme_override_colors/font_outline_color = Color(0, 0.1, 0.3, 1)
 theme_override_constants/shadow_offset_x = 0
 theme_override_constants/shadow_offset_y = 0
+theme_override_constants/outline_size = 2
 theme_override_constants/shadow_outline_size = 8
+theme_override_font_sizes/font_size = 96
+text = "0"
+horizontal_alignment = 1
 
-[node name="ScoreB" type="Label" parent="UILayer"]
+[node name="ScoreB" type="Label" parent="UILayer" unique_id=1695216953]
+anchors_preset = -1
 anchor_left = 0.5
 anchor_right = 1.0
 offset_left = 60.0
 offset_top = 20.0
 offset_right = -60.0
 offset_bottom = 140.0
-text = "0"
-horizontal_alignment = 1
-theme_override_font_sizes/font_size = 96
-theme_override_colors/font_color = Color(1.0, 0.25, 0.08, 1.0)
-theme_override_colors/font_outline_color = Color(0.3, 0.05, 0.0, 1.0)
-theme_override_colors/font_shadow_color = Color(1.0, 0.1, 0.0, 0.7)
-theme_override_constants/outline_size = 2
+theme_override_colors/font_color = Color(1, 0.25, 0.08, 1)
+theme_override_colors/font_shadow_color = Color(1, 0.1, 0, 0.7)
+theme_override_colors/font_outline_color = Color(0.3, 0.05, 0, 1)
 theme_override_constants/shadow_offset_x = 0
 theme_override_constants/shadow_offset_y = 0
+theme_override_constants/outline_size = 2
 theme_override_constants/shadow_outline_size = 8
+theme_override_font_sizes/font_size = 96
+text = "0"
+horizontal_alignment = 1
 
-[node name="TimerPanel" type="Panel" parent="UILayer"]
+[node name="TimerPanel" type="Panel" parent="UILayer" unique_id=1316345902]
+anchors_preset = 5
 anchor_left = 0.5
 anchor_right = 0.5
 offset_left = -150.0
-offset_top = 20.0
 offset_right = 150.0
-offset_bottom = 95.0
+offset_bottom = 75.0
+grow_horizontal = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_timer")
 
-[node name="TimerLabel" type="Label" parent="UILayer/TimerPanel"]
+[node name="TimerLabel" type="Label" parent="UILayer/TimerPanel" unique_id=95259225]
+layout_mode = 1
+anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-text = "5:00"
-horizontal_alignment = 1
-vertical_alignment = 1
-theme_override_font_sizes/font_size = 48
-theme_override_colors/font_color = Color(0.9, 0.95, 1.0, 1.0)
-theme_override_colors/font_shadow_color = Color(0.4, 0.8, 1.0, 0.6)
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_colors/font_color = Color(0.9, 0.95, 1, 1)
+theme_override_colors/font_shadow_color = Color(0.4, 0.8, 1, 0.6)
 theme_override_constants/shadow_offset_x = 0
 theme_override_constants/shadow_offset_y = 0
 theme_override_constants/shadow_outline_size = 4
+theme_override_font_sizes/font_size = 48
+text = "5:00"
+horizontal_alignment = 1
+vertical_alignment = 1
 
-[node name="TeamALabel" type="Label" parent="UILayer"]
+[node name="TeamALabel" type="Label" parent="UILayer" unique_id=1904376]
+anchors_preset = -1
 anchor_right = 0.5
 offset_left = 60.0
 offset_top = 140.0
 offset_right = -60.0
 offset_bottom = 185.0
-text = "TEAM A"
-horizontal_alignment = 1
-theme_override_font_sizes/font_size = 28
-theme_override_colors/font_color = Color(0.35, 0.65, 1.0, 0.85)
-theme_override_colors/font_shadow_color = Color(0.0, 0.35, 1.0, 0.5)
+theme_override_colors/font_color = Color(0.35, 0.65, 1, 0.85)
+theme_override_colors/font_shadow_color = Color(0, 0.35, 1, 0.5)
 theme_override_constants/shadow_offset_x = 0
 theme_override_constants/shadow_offset_y = 0
 theme_override_constants/shadow_outline_size = 4
+theme_override_font_sizes/font_size = 28
+text = "TEAM A"
+horizontal_alignment = 1
 
-[node name="TeamBLabel" type="Label" parent="UILayer"]
+[node name="TeamBLabel" type="Label" parent="UILayer" unique_id=1377102199]
+anchors_preset = -1
 anchor_left = 0.5
 anchor_right = 1.0
 offset_left = 60.0
 offset_top = 140.0
 offset_right = -60.0
 offset_bottom = 185.0
-text = "TEAM B"
-horizontal_alignment = 1
-theme_override_font_sizes/font_size = 28
-theme_override_colors/font_color = Color(1.0, 0.28, 0.08, 0.85)
-theme_override_colors/font_shadow_color = Color(1.0, 0.1, 0.0, 0.5)
+theme_override_colors/font_color = Color(1, 0.28, 0.08, 0.85)
+theme_override_colors/font_shadow_color = Color(1, 0.1, 0, 0.5)
 theme_override_constants/shadow_offset_x = 0
 theme_override_constants/shadow_offset_y = 0
 theme_override_constants/shadow_outline_size = 4
+theme_override_font_sizes/font_size = 28
+text = "TEAM B"
+horizontal_alignment = 1
 
-[node name="DebugPanel" parent="." instance=ExtResource("2_debugPanel")]
+[node name="DebugPanel" parent="." unique_id=183231401 instance=ExtResource("2_debugPanel")]
 
-[node name="DemoRunner" type="Node" parent="."]
+[node name="DemoRunner" type="Node" parent="." unique_id=938020663]
 script = ExtResource("3_demoRunner")
 auto_start = false
 
-[node name="WSConnector" type="Node" parent="."]
+[node name="WSConnector" type="Node" parent="." unique_id=828156139]
 script = ExtResource("4_wsConnector")
 
-[node name="WinScreen" parent="." instance=ExtResource("5_winScreen")]
+[node name="LeaderboardUI" parent="." unique_id=1297048073 instance=ExtResource("6_leaderboard")]
 
-[node name="LeaderboardUI" parent="." instance=ExtResource("6_leaderboard")]
+[node name="CharacterBackground" parent="." unique_id=1462152763 instance=ExtResource("7_charBg")]

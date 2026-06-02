@@ -14,6 +14,7 @@ var _counter_succeeded: bool = false
 var _window_timer: float = 0.0
 var _window_gen: int = 0            # generation counter guards stale coroutines
 var _prompt_canvas: CanvasLayer = null
+var _prompt_root: Control = null
 var _countdown_fill: ColorRect = null
 
 func _ready() -> void:
@@ -81,6 +82,9 @@ func _build_prompt_ui(defender_team: int) -> void:
 	_prompt_canvas.layer = 15
 	_prompt_canvas.process_mode = Node.PROCESS_MODE_ALWAYS
 	add_child(_prompt_canvas)
+	_prompt_root = Control.new()
+	_prompt_root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_prompt_canvas.add_child(_prompt_root)
 
 	# Background panel — tinted by defender team color
 	var tint := Color(0.2, 0.4, 1.0, 0.18) if defender_team == 1 \
@@ -89,13 +93,13 @@ func _build_prompt_ui(defender_team: int) -> void:
 	bg.color = tint
 	bg.size = Vector2(560, 196)
 	bg.position = Vector2(680, 762)   # centered: 960 - 280
-	_prompt_canvas.add_child(bg)
+	_prompt_root.add_child(bg)
 
 	var top_line := ColorRect.new()
 	top_line.color = Color(1.0, 0.85, 0.0, 0.92)
 	top_line.size = Vector2(560, 3)
 	top_line.position = Vector2(680, 762)
-	_prompt_canvas.add_child(top_line)
+	_prompt_root.add_child(top_line)
 
 	var header := Label.new()
 	header.text = "COUNTER WINDOW!"
@@ -106,20 +110,20 @@ func _build_prompt_ui(defender_team: int) -> void:
 	header.add_theme_color_override("font_color", Color(1.0, 0.85, 0.0, 1.0))
 	header.add_theme_color_override("font_outline_color", Color(0, 0, 0, 1))
 	header.add_theme_constant_override("outline_size", 2)
-	_prompt_canvas.add_child(header)
+	_prompt_root.add_child(header)
 
 	# SPACEBAR key visual (outer frame + inner face)
 	var key_outer := ColorRect.new()
 	key_outer.color = Color(0.88, 0.88, 0.88, 1.0)
 	key_outer.size = Vector2(300, 58)
 	key_outer.position = Vector2(810, 808)   # centered: 960 - 150
-	_prompt_canvas.add_child(key_outer)
+	_prompt_root.add_child(key_outer)
 
 	var key_inner := ColorRect.new()
 	key_inner.color = Color(0.72, 0.72, 0.72, 1.0)
 	key_inner.size = Vector2(292, 50)
 	key_inner.position = Vector2(814, 812)
-	_prompt_canvas.add_child(key_inner)
+	_prompt_root.add_child(key_inner)
 
 	var key_lbl := Label.new()
 	key_lbl.text = "SPACE BAR"
@@ -129,20 +133,20 @@ func _build_prompt_ui(defender_team: int) -> void:
 	key_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	key_lbl.add_theme_font_size_override("font_size", 26)
 	key_lbl.add_theme_color_override("font_color", Color(0.08, 0.08, 0.08, 1.0))
-	_prompt_canvas.add_child(key_lbl)
+	_prompt_root.add_child(key_lbl)
 
 	# Countdown bar (yellow → red)
 	var bar_bg := ColorRect.new()
 	bar_bg.color = Color(0.06, 0.06, 0.06, 0.92)
 	bar_bg.size = Vector2(480, 20)
 	bar_bg.position = Vector2(720, 880)   # centered: 960 - 240
-	_prompt_canvas.add_child(bar_bg)
+	_prompt_root.add_child(bar_bg)
 
 	_countdown_fill = ColorRect.new()
 	_countdown_fill.color = Color(1.0, 0.85, 0.0, 1.0)
 	_countdown_fill.size = Vector2(480, 20)
 	_countdown_fill.position = Vector2(720, 880)
-	_prompt_canvas.add_child(_countdown_fill)
+	_prompt_root.add_child(_countdown_fill)
 
 	var inst := Label.new()
 	inst.text = "PRESS TO COUNTER  —  70%% DAMAGE BLOCKED"
@@ -153,11 +157,11 @@ func _build_prompt_ui(defender_team: int) -> void:
 	inst.add_theme_color_override("font_color", Color(0.85, 0.85, 0.85, 0.9))
 	inst.add_theme_color_override("font_outline_color", Color(0, 0, 0, 1))
 	inst.add_theme_constant_override("outline_size", 1)
-	_prompt_canvas.add_child(inst)
+	_prompt_root.add_child(inst)
 
-	_prompt_canvas.modulate.a = 0.0
-	var t := _prompt_canvas.create_tween()
-	t.tween_property(_prompt_canvas, "modulate:a", 1.0, 0.25)
+	_prompt_root.modulate.a = 0.0
+	var t := _prompt_root.create_tween()
+	t.tween_property(_prompt_root, "modulate:a", 1.0, 0.25)
 
 func _refresh_countdown(ratio: float) -> void:
 	if not is_instance_valid(_countdown_fill):

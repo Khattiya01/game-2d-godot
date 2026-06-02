@@ -1,0 +1,42 @@
+[gd_scene format=3 uid="uid://bnk7cwfh2uaje"]
+
+[ext_resource type="Script" uid="uid://klbluqvdcdh0" path="res://effects/SpikeExplosion.gd" id="1_script"]
+[ext_resource type="AudioStream" uid="uid://c688oa7cw37bb" path="res://assets/sounds/electric-paralyze-bomb_01.wav" id="2_electric"]
+
+[sub_resource type="Gradient" id="Gradient_smoke"]
+offsets = PackedFloat32Array(0, 0.18, 0.55, 1)
+colors = PackedColorArray(1, 1, 1, 1, 0.55, 0.55, 0.55, 0.85, 0.15, 0.15, 0.15, 0.5, 0.04, 0.04, 0.04, 0)
+
+[sub_resource type="GradientTexture1D" id="GradientTexture1D_smoke"]
+gradient = SubResource("Gradient_smoke")
+width = 128
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_smoke"]
+direction = Vector3(0, -1, 0)
+spread = 180.0
+initial_velocity_min = 180.0
+initial_velocity_max = 340.0
+angular_velocity_min = -120.0
+angular_velocity_max = 120.0
+gravity = Vector3(0, 35, 0)
+scale_min = 0.8
+scale_max = 2.0
+color_ramp = SubResource("GradientTexture1D_smoke")
+
+[node name="SpikeExplosion" type="Node2D" unique_id=1527505068]
+z_index = 4
+script = ExtResource("1_script")
+
+[node name="BurstParticles" type="GPUParticles2D" parent="." unique_id=2096826527]
+emitting = false
+amount = 65
+lifetime = 0.6
+one_shot = true
+explosiveness = 1.0
+randomness = 0.25
+process_material = SubResource("ParticleProcessMaterial_smoke")
+
+[node name="LaunchSound" type="AudioStreamPlayer2D" parent="." unique_id=1643242817]
+stream = ExtResource("2_electric")
+volume_db = -5.0
+max_distance = 3000.0

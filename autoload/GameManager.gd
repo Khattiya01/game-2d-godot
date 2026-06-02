@@ -33,6 +33,7 @@ signal game_over(winner: String)
 signal spawn_avatar_requested(user_data: Dictionary)
 signal trigger_effect_requested(effect_data: Dictionary)
 signal like_event(data: Dictionary)
+signal neutral_effect_requested(effect_data: Dictionary)
 
 # ── Lifecycle ─────────────────────────────────────────────────────────────────
 
@@ -42,21 +43,6 @@ func _ready() -> void:
 		game_duration, GameState.keys()[current_state]
 	])
 
-# Counts down the game timer; only runs while PLAYING.
-func _process(delta: float) -> void:
-	if current_state != GameState.PLAYING:
-		return
-
-	time_remaining = maxf(0.0, time_remaining - delta)
-
-	# Emit at most once per second to avoid flooding UI listeners.
-	var current_second := int(time_remaining)
-	if current_second != _last_timer_second:
-		_last_timer_second = current_second
-		timer_updated.emit(time_remaining)
-
-	if time_remaining <= 0.0:
-		_end_game()
 
 # ── Game Flow ─────────────────────────────────────────────────────────────────
 
@@ -182,15 +168,6 @@ func on_like_received(data: Dictionary) -> void:
 		})
 
 # ── Internal Helpers ──────────────────────────────────────────────────────────
-
-# Transitions to GAME_OVER and announces the winner.
-func _end_game() -> void:
-	_set_state(GameState.GAME_OVER)
-	var winner := get_winner()
-	game_over.emit(winner)
-	print("[GameManager] ══ GAME OVER  winner=%-6s  A=%d  B=%d ══" % [
-		winner, score["team_a"], score["team_b"]
-	])
 
 # Sets current_state and broadcasts game_state_changed.
 func _set_state(new_state: GameState) -> void:

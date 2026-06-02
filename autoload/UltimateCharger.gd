@@ -40,7 +40,7 @@ func _ready() -> void:
 func add_charge(team: String, amount: float) -> void:
 	if not _meter.has(team):
 		return
-	var prev := _meter[team]
+	var prev: float = _meter[team]
 	_meter[team] = minf(prev + amount, MAX_PCT)
 	meter_updated.emit(team, _meter[team])
 	_refresh_bar(team)
@@ -49,8 +49,8 @@ func add_charge(team: String, amount: float) -> void:
 
 # Charges both teams; fires any team that crosses 100%.
 func add_charge_both(amount: float) -> void:
-	var prev_a := _meter["team_a"]
-	var prev_b := _meter["team_b"]
+	var prev_a: float = _meter["team_a"]
+	var prev_b: float = _meter["team_b"]
 	_meter["team_a"] = minf(prev_a + amount, MAX_PCT)
 	_meter["team_b"] = minf(prev_b + amount, MAX_PCT)
 	_refresh_bar("team_a")
@@ -76,8 +76,10 @@ func get_percent(team: String) -> float:
 
 # ── Signal handlers ───────────────────────────────────────────────────────────
 
-func _on_ultimate_finished(_team: String) -> void:
-	reset_meters()
+func _on_ultimate_finished(team: String) -> void:
+	_meter[team] = 0.0
+	_refresh_bar(team)
+	meter_updated.emit(team, 0.0)
 
 func _on_boss_defeated(_level: int) -> void:
 	add_charge_both(20.0)
@@ -184,8 +186,8 @@ func _refresh_bar(team: String) -> void:
 	if not is_instance_valid(fill):
 		return
 
-	var pct   := _meter[team]
-	var ratio := pct / MAX_PCT
+	var pct: float   = _meter[team]
+	var ratio: float = pct / MAX_PCT
 
 	fill.size.x = BAR_W * ratio
 	var base  := Color(0.18, 0.48, 1.0) if is_a else Color(1.0, 0.22, 0.18)
@@ -195,8 +197,8 @@ func _refresh_bar(team: String) -> void:
 	if is_instance_valid(pct_l):
 		pct_l.text = "%d%%" % int(pct)
 
-	var is_ready := pct >= MAX_PCT
-	var was      := _was_ready[team]
+	var is_ready: bool = pct >= MAX_PCT
+	var was: bool      = _was_ready[team]
 	_was_ready[team] = is_ready
 
 	if not is_instance_valid(rdy_l):

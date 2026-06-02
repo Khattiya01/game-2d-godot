@@ -937,6 +937,197 @@ universe (¥50+)
 
 ---
 
+## Neutral Effects System
+
+### Concept
+Effects triggered by TikTok gifts that affect **ALL avatars on both teams simultaneously** — no targeting, pure chaos/spectacle. Creates shared threat moments that interrupt the normal team-vs-team dynamic.
+
+### Triggering
+```
+Neutral effects can be triggered by:
+1. Specific "chaos" gift types (new gift tier)
+2. Milestone: Like streak ×50 (anyone's total)
+3. Manual: Debug button "Chaos [effect]"
+
+JSON format:
+{ type: "neutral_effect", effect: "meteor_shower", sender: "username" }
+
+Announcement (2 sec before effect):
+- "⚡ [username] triggered ELECTRIC STORM!"
+- Screen edge flash in effect color
+- Brief warning icon center screen
+```
+
+### Effect 1: Meteor Shower ☄️
+
+```
+Trigger gift:   rose_bouquet (¥10) → neutral variant
+Duration:       5 seconds
+Intensity:      10–14 meteors randomly spawned
+
+Mechanics:
+├─ Meteors spawn at random x (50–1870), y = -80 (above screen)
+├─ Each falls at speed 700–950 px/s with slight random x drift
+├─ Hit detection: 55px radius around impact point
+├─ On hit → 18 DMG + knockback 220px in random direction
+├─ Each meteor independent — can hit same avatar multiple times
+└─ No team targeting: both teams take equal random risk
+
+Visual:
+├─ Fireball: orange core (Polygon2D) + red outer glow shader
+├─ Trail: GPUParticles2D — 30 particles, orange/yellow additive
+├─ Impact: burst explosion, 15px crater flash, screen_shake(0.25, 5.0)
+└─ Sound: whistle incoming → crash on impact
+
+Balance:
+- Average per avatar: 1–2 hits (= 18–36 DMG)
+- Arena-wide DPS burst: creates chaos window of ~3 seconds
+- Rewards mobile avatars (bouncing away reduces hits)
+```
+
+### Effect 2: Black Hole Pull 🌀
+
+```
+Trigger gift:   universe (¥50+) → alternate path (if meter already 100%)
+Duration:       3s pull + 1s explosion = 4s total
+Spawns at:      Arena center (960, 540)
+
+Mechanics — Pull Phase (0–3s):
+├─ Every physics frame: add velocity toward (960, 540)
+│  velocity += (center - avatar.position).normalized() × PULL_FORCE
+│  PULL_FORCE = 280 px/s² (lerps from 0 → 280 over 1.5s = gradual suck)
+├─ Zone boundaries still apply (avatars bounce at edges)
+└─ Avatars visually drawn toward center — creates collision cluster
+
+Mechanics — Explosion Phase (3–4s):
+├─ Instant AoE damage: 30 DMG to all avatars within 500px of center
+├─ Knockback: velocity += (avatar.position - center).normalized() × 600
+├─ Screen shake: screen_shake(0.65, 16.0) — large radius hit
+└─ After explosion: normal physics resume
+
+Visual:
+├─ Black sphere (60px radius) with purple-violet neon glow ring shader
+├─ GPUParticles2D: particles orbiting center, spiraling inward (additive blend)
+├─ Pull distortion: radial shader on Arena background (optional)
+├─ Explosion: purple ring expands 0 → 520px, fades in 0.6s
+└─ Screen flash: dark purple full-screen rect, alpha 0.4, fade 0.3s
+
+Balance:
+- Guaranteed 30 DMG to clustered avatars (most will be near center)
+- Creates visible clustering = exciting camera moment
+- No team preference — equal risk both zones
+```
+
+### Effect 3: Electric Storm ⚡
+
+```
+Trigger gift:   ice_cream (¥5) → neutral variant
+Duration:       5 seconds
+Strike rate:    Every 0.35s = ~14 total strikes
+
+Mechanics:
+├─ Timer fires every 0.35s: pick random arena position (x: 100–1820, y: 200–900)
+├─ Nearest avatar within 75px radius takes 12 DMG
+├─ 25% chance per strike: stun (freeze movement + attacks) 1.0s
+│  (stun uses existing _respawning freeze logic — same semi-transparent state)
+├─ Visual strike still shows even if no avatar hit (ambient effect)
+└─ Chain rule: if avatar hit and another within 120px → 8 DMG chain (one hop only)
+
+Visual:
+├─ Bolt: Line2D from top-of-screen to strike point, white core 2px + cyan outer 6px
+├─ Branch: 2–3 sub-branches ±15px offset (same zigzag as LightningAttackEffect)
+├─ Flash: strike-point GPUParticles2D burst (20 cyan particles, instant)
+├─ Flicker: Line2D alpha flickers 3× then fades (0.12s total)
+└─ Ambient particles: lightning static slowly drifts across arena during duration
+
+Balance:
+- Average per avatar: 2–3 strikes (= 24–36 DMG over 5s)
+- Stun chance 25% per strike means ~3–4 stuns per avatar statistically
+- LightningAttackEffect already exists — reuse visual logic
+```
+
+### Effect 4: Toxic Flood ☠️
+
+```
+Trigger gift:   Any gift "x3 consecutive" from same user → alternate trigger
+			   OR specific "toxic" gift tier (future)
+Duration:       8 seconds active + 2s dissipate
+DoT rate:       3 HP every 0.5s = 6 DMG/sec = 48 total
+
+Mechanics:
+├─ On trigger: spawn ToxicFloodEffect node (covers entire arena)
+├─ Every 0.5s tick: Arena.damage_all_alive(3, "toxic") — skips respawning
+├─ Damage type "toxic" bypasses damage multiplier buffs (raw)
+├─ No knockback — pure pressure / attrition
+├─ Combo heal still works: Like×5 or Donate×5 can partially offset
+└─ Avatar death from toxic = normal death (killer_id = "toxic_flood")
+
+Visual:
+├─ Arena overlay: dark green semi-transparent rect, alpha 0.25 (CanvasLayer layer=1)
+├─ GPUParticles2D: green bubble particles rising from arena floor (150 particles, lifetime 2s)
+├─ Avatar tint: each avatar gets slight green modulate during duration
+├─ Damage numbers: green "-3" every tick (smaller font than combat damage)
+├─ Dissipate: particles fade, overlay alpha → 0 over 2s
+└─ Sound: ambient bubbling/hissing loop during duration
+
+Balance:
+- 48 total DMG per avatar (equal to ~3 rose hits)
+- Low per-tick damage = manageable, but constant pressure
+- Encourages teams to donate/like to heal back
+- "Chaos tax" on both teams = engagement incentive
+```
+
+### Gift → Neutral Effect Mapping
+
+```
+Gift / Trigger             → Effect
+─────────────────────────────────────────────────────
+ice_cream (¥5) chaos flag  → Electric Storm (5s)
+rose_bouquet (¥10) chaos   → Meteor Shower (5s)
+universe (¥50) alt path    → Black Hole Pull (4s)
+3× consecutive same user   → Toxic Flood (8s)
+
+"chaos flag" = Node.js listener sends:
+  { type: "neutral_effect", effect: "electric_storm", ... }
+instead of normal gift attack — triggered by specific TikTok gift names
+
+Planned TikTok gift→neutral mapping:
+  "soccer_ball" → Electric Storm
+  "planet"      → Black Hole Pull
+  "bomb"        → Meteor Shower
+  "alien"       → Toxic Flood
+```
+
+### Neutral Effect Signal Contract
+
+```gdscript
+# in GameManager.gd
+signal neutral_effect_requested(effect_data: Dictionary)
+
+# effect_data shape:
+{
+  "effect": "meteor_shower",  # or black_hole, electric_storm, toxic_flood
+  "sender": "username",
+  "gift": "planet",
+  "timestamp": 1234567.0
+}
+```
+
+### Implementation Order
+
+```
+Phase 8 — Neutral Effects:
+1. ElectricStorm.tscn + .gd    (reuse LightningAttackEffect visuals)
+2. MeteorShower.tscn + .gd     (new projectile, simplest mechanic)
+3. BlackHolePull.tscn + .gd    (physics pull + explosion)
+4. ToxicFlood.tscn + .gd       (DoT + arena overlay)
+5. Arena.gd: spawn_neutral_effect() dispatcher
+6. GameManager.gd: neutral_effect_requested signal + routing
+7. DebugPanel: 4 chaos buttons
+```
+
+---
+
 ## Technical Architecture
 
 ### Class Structure

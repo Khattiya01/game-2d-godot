@@ -11,7 +11,7 @@ signal ultimate_finished(team: String)
 
 var is_ultimate_active: bool = false
 var ultimate_queue: Array = []
-var can_use_ultimate: bool = true
+var _team_cooldown: Array[bool] = [false, false]  # index 0 = team 1, index 1 = team 2
 
 var _arena_ref: Node = null
 var _focus_canvas: CanvasLayer = null
@@ -27,22 +27,24 @@ func register_arena(arena: Node) -> void:
 # ── Public entry point ────────────────────────────────────────────────────────
 
 func request_ultimate(from_team: int) -> void:
-	if not can_use_ultimate:
+	var idx := from_team - 1
+	if _team_cooldown[idx]:
 		return
-	can_use_ultimate = false
-	_run_cooldown()  # async — resets can_use after COOLDOWN_SEC
+	_team_cooldown[idx] = true
+	_run_cooldown(from_team)  # async — resets this team's cooldown after COOLDOWN_SEC
 
 	if is_ultimate_active:
-		ultimate_queue.append(from_team)
+		if not ultimate_queue.has(from_team):
+			ultimate_queue.append(from_team)
 		return
 
 	_play_cinematic(from_team)  # async fire-and-forget
 
 # ── Internal coroutines ───────────────────────────────────────────────────────
 
-func _run_cooldown() -> void:
+func _run_cooldown(from_team: int) -> void:
 	await get_tree().create_timer(COOLDOWN_SEC, true).timeout
-	can_use_ultimate = true
+	_team_cooldown[from_team - 1] = false
 
 func _play_cinematic(from_team: int) -> void:
 	if not is_instance_valid(_arena_ref):

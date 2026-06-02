@@ -1,0 +1,6 @@
+[gd_scene format=3 uid="uid://dq7urlbgv8e6r"]
+
+[ext_resource type="Script" uid="uid://bdwy222tyhueq" path="res://effects/ElectricStorm.gd" id="1"]
+
+[node name="ElectricStorm" type="Node2D" unique_id=1404732781]
+script = ExtResource("1")

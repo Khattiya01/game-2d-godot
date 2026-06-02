@@ -56,17 +56,18 @@ func add_exp(player_id: String, amount: int, source: String = "") -> void:
 
 # ── Kill & Death ──────────────────────────────────────────────────────────────
 
-# Awards killer with victim's level-value EXP, then demotes victim one level.
+# Awards killer the EXP cost of the level victim is losing, then demotes victim one level.
 func on_kill(killer_id: String, victim_id: String) -> void:
 	if not _players.has(victim_id):
 		return
 	var victim_level: int = _players[victim_id]["level"]
-	var reward: int = _total_exp_to_reach_level(victim_level + 1)
+	var reward: int = get_exp_for_level(victim_level - 1)
 	if killer_id != "" and _players.has(killer_id):
 		_players[killer_id]["kills"] += 1
 		add_exp(killer_id, reward, "kill")
 	player_died.emit(victim_id, killer_id)
-	_reset_on_death(victim_id)
+	if killer_id != "boss":
+		_reset_on_death(victim_id)
 
 # Grants all registered players EXP equal to 500 × boss_level.
 func on_boss_cleared(boss_level: int) -> void:
@@ -93,7 +94,7 @@ func get_stats(player_id: String) -> Dictionary:
 		"size_scale": get_size_scale(lv),
 		"kills": p["kills"],
 		"likes": p["likes"],
-		"kill_reward_exp": _total_exp_to_reach_level(lv + 1),
+		"kill_reward_exp": get_exp_for_level(lv - 1),
 	}
 
 func get_level(player_id: String) -> int:
@@ -128,9 +129,9 @@ func get_exp_for_level(level: int) -> int:
 func get_max_hp(level: int) -> int:
 	return int(100.0 + pow(float(level), 1.8) * 50.0)
 
-# DMG = 10 × (1 + level × 0.15)
+# DMG = 10 × (1 + level × 0.30)
 func get_damage(level: int) -> int:
-	return int(10.0 * (1.0 + float(level) * 0.15))
+	return int(10.0 * (1.0 + float(level) * 0.30))
 
 # SIZE = 1.0 + (level-1) × 0.1  →  Lv1=1.0x, Lv2=1.1x, Lv10=1.9x
 func get_size_scale(level: int) -> float:
@@ -156,6 +157,7 @@ func _reset_on_death(player_id: String) -> void:
 	var p: Dictionary = _players[player_id]
 	p["level"] = maxi(1, p["level"] - 1)
 	p["current_exp"] = 0
+	level_changed.emit(player_id, p["level"])
 	print("[PlayerStats] %s died → Lv%d" % [player_id, p["level"]])
 
 # Returns cumulative EXP required to reach `target_level` from Lv1.
