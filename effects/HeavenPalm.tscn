@@ -1,0 +1,7 @@
+[gd_scene format=3 uid="uid://b0exime483s7a"]
+
+[ext_resource type="Script" uid="uid://heavenpalmscr001" path="res://effects/HeavenPalm.gd" id="1_script"]
+
+[node name="HeavenPalm" type="Node2D"]
+z_index = 5
+script = ExtResource("1_script")

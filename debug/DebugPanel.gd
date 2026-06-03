@@ -8,39 +8,24 @@ const USERNAMES := [
 
 @onready var panel: PanelContainer = $PanelContainer
 @onready var auto_btn: Button = $PanelContainer/VBox/AutoDemoButton
-@onready var atk_mode_label: Label = $PanelContainer/VBox/AtkModeLabel
 @onready var boss_lv_label: Label = $PanelContainer/VBox/BossRow/BossLvLabel
-@onready var atk_btns: Array = []
 
-const ATK_MODE_NAMES := {-1: "Random", 0: "Basic", 1: "Laser", 2: "Chain", 3: "Shield", 4: "Spike", 5: "Rock"}
-const ATK_BTN_COLORS := {
-	-1: Color(0.85, 0.85, 0.85, 1.0),
-	0:  Color(0.50, 0.85, 1.0,  1.0),
-	1:  Color(0.40, 0.95, 1.0,  1.0),
-	2:  Color(0.90, 0.95, 0.5,  1.0),
-	3:  Color(0.35, 0.75, 1.0,  1.0),
-	4:  Color(0.00, 1.00, 0.25, 1.0),
-	5:  Color(0.85, 0.62, 0.35, 1.0),
-}
 
 var _auto_active: bool = false
 var _auto_timer: float = 0.0
 var _auto_step: int = 0
+var _atk_mode_btns: Dictionary = {}  # mode_id → Button for highlight tracking
 
 func _arena() -> Node:
 	return get_parent()
 
 func _ready() -> void:
 	panel.visible = true
-	var row  := $PanelContainer/VBox/AtkModeRow
-	var row2 := $PanelContainer/VBox/AtkModeRow2
-	atk_btns = [
-		row.get_node("AtkRndBtn"), row.get_node("AtkBasicBtn"),
-		row.get_node("AtkLaserBtn"), row.get_node("AtkChainBtn"),
-		row2.get_node("AtkShieldBtn"), row2.get_node("AtkSpikeBtn"),
-		row2.get_node("AtkRockBtn"),
-	]
-	_refresh_atk_ui(-1)
+	# Hide legacy / redundant controls
+	$PanelContainer/VBox/AtkModeLabel.visible = false
+	$PanelContainer/VBox/AtkModeRow.visible = false
+	$PanelContainer/VBox/AtkModeRow2.visible = false
+	$PanelContainer/VBox/GiftRow.visible = false
 	# Dynamic Chaos FX section
 	var vbox: VBoxContainer = $PanelContainer/VBox
 	var sep := HSeparator.new()
@@ -55,6 +40,67 @@ func _ready() -> void:
 	storm_btn.add_theme_color_override("font_color", Color(0.5, 0.85, 1.0, 1.0))
 	storm_btn.pressed.connect(_on_storm_pressed)
 	vbox.add_child(storm_btn)
+	# Private Ultimate section
+	vbox.add_child(HSeparator.new())
+	var pult_lbl := Label.new()
+	pult_lbl.text = "── Private Ultimate ──"
+	pult_lbl.add_theme_color_override("font_color", Color(0.9, 1.0, 0.55, 1.0))
+	pult_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(pult_lbl)
+	var pult_row := HBoxContainer.new()
+	vbox.add_child(pult_row)
+	var dragon_btn := Button.new()
+	dragon_btn.text = "Dragon Soul A"
+	dragon_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	dragon_btn.add_theme_color_override("font_color", Color(0.4, 1.0, 0.85, 1.0))
+	dragon_btn.pressed.connect(_on_private_ult_pressed.bind(1))
+	pult_row.add_child(dragon_btn)
+	var demon_btn2 := Button.new()
+	demon_btn2.text = "Demon King B"
+	demon_btn2.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	demon_btn2.add_theme_color_override("font_color", Color(0.75, 0.1, 1.0, 1.0))
+	demon_btn2.pressed.connect(_on_private_ult_pressed.bind(2))
+	pult_row.add_child(demon_btn2)
+
+	# Auto Attack Mode selector
+	vbox.add_child(HSeparator.new())
+	var atk_mode_lbl := Label.new()
+	atk_mode_lbl.text = "── Auto Attack Mode ──"
+	atk_mode_lbl.add_theme_color_override("font_color", Color(1.0, 0.78, 0.20, 1.0))
+	atk_mode_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(atk_mode_lbl)
+	# [mode_id, button_label]
+	var atk_modes := [
+		["rnd",        "🎲 Random"],
+		["basic",      "👊 Basic"],
+		["dash_t1",    "💨 Dash"],
+		["shield_t1",  "🛡 Shield"],
+		["buff_t1",    "⚡ Buff ATK"],
+		["buff_t2",    "🌿 Buff T2"],
+		["attack_t2",  "T2 Rose"],
+		["attack_t3",  "T3 Cream"],
+		["attack_t4a", "T4a Vortex"],
+		["attack_t4b", "T4b Palm"],
+		["attack_t4c", "T4c Beam"],
+		["attack_t4d", "T4d Whale"],
+	]
+	var atk_row: HBoxContainer = null
+	for i in atk_modes.size():
+		if i % 2 == 0:
+			atk_row = HBoxContainer.new()
+			vbox.add_child(atk_row)
+		var mid: String = atk_modes[i][0]
+		var mlabel: String = atk_modes[i][1]
+		var abtn := Button.new()
+		abtn.text = mlabel
+		abtn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		# Highlight the default (attack_t2 = current arena default)
+		var is_default: bool = mid == "attack_t2"
+		abtn.add_theme_color_override("font_color",
+			Color(1.0, 0.85, 0.0, 1.0) if is_default else Color(0.62, 0.62, 0.62, 1.0))
+		abtn.pressed.connect(_set_auto_atk_mode.bind(mid))
+		atk_row.add_child(abtn)
+		_atk_mode_btns[mid] = abtn
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo:
@@ -77,21 +123,52 @@ func _rnd() -> String:
 
 func _run_auto_step() -> void:
 	var a := _arena()
-	match _auto_step % 10:
-		0, 1, 2:
+	match _auto_step % 22:
+		0, 1:
 			a.on_chat(_rnd(), "1", "")
 			a.on_chat(_rnd(), "2", "")
+		2:
+			a.on_gift(_rnd(), "rose", "", 1)          # T2: Sword Qi
 		3:
-			a.on_gift(_rnd(), "rose", "", 1)
-		4, 5:
-			a.on_chat(_rnd(), str((randi() % 2) + 1), "")
+			a.on_gift(_rnd(), "rose", "", 2)          # T2: Dark Needle
+		4:
+			a.on_gift(_rnd(), "donut", "", 1)         # Shield: Chi Shield
+		5:
+			a.on_gift(_rnd(), "donut", "", 2)         # Shield: Demon Shell
 		6:
-			a.on_gift(_rnd(), "rose", "", 2)
-		7, 8:
+			a.on_gift(_rnd(), "panda", "", 1)         # Buff T1: Chi Gathering
+		7:
+			a.on_gift(_rnd(), "panda", "", 2)         # Buff T1: Blood Rage
+		8:
+			a.on_gift(_rnd(), "ice_cream", "", 1)     # T3: White Crane + Buff T2: Lotus Veil
+		9:
+			a.on_gift(_rnd(), "ice_cream", "", 2)     # T3: Tiger Claw + Buff T2: Dark Hunger
+		10:
+			a.on_gift(_rnd(), "gift_box", "", 1)      # Dash: Cloud Step
+		11:
+			a.on_gift(_rnd(), "gift_box", "", 2)      # Dash: Shadow Blink
+		12:
+			a.on_gift(_rnd(), "rose_bouquet", "", 1)  # T4a: Tai Chi Vortex
+		13:
+			a.on_gift(_rnd(), "rose_bouquet", "", 2)  # T4a: Dark Tornado
+		14:
 			a.on_chat(_rnd(), "1", "")
 			a.on_chat(_rnd(), "2", "")
-		9:
-			a.on_gift(_rnd(), "ice_cream", "", randi() % 2 + 1)
+		15:
+			a.debug_spawn_skill("attack_t4b", 1)      # T4b: Heaven Palm
+		16:
+			a.debug_spawn_skill("attack_t4b", 2)      # T4b: Shadow Eruption
+		17:
+			a.debug_spawn_skill("attack_t4c", 1)      # T4c: White Dragon Beam
+		18:
+			a.debug_spawn_skill("attack_t4c", 2)      # T4c: Black Serpent
+		19:
+			a.on_gift(_rnd(), "whale_gift", "", 1)    # T4d: Transcendence (A)
+		20:
+			a.on_gift(_rnd(), "whale_gift", "", 2)    # T4d: Abyss Annihilation (B)
+		21:
+			a.on_chat(_rnd(), "1", "")
+			a.on_chat(_rnd(), "2", "")
 	_auto_step += 1
 
 # ── Button handlers ──────────────────────────────────────────────────────────
@@ -137,6 +214,7 @@ func _on_auto_demo_pressed() -> void:
 	_auto_step = 0
 	if _auto_active:
 		_arena().start_game()
+		GameManager.start_game()
 	auto_btn.text = "■  Stop Demo" if _auto_active else "▶  Auto Demo"
 	auto_btn.add_theme_color_override(
 		"font_color",
@@ -170,23 +248,34 @@ func _on_reset_pressed() -> void:
 	auto_btn.text = "▶  Auto Demo"
 	auto_btn.add_theme_color_override("font_color", Color(0.3, 1.0, 0.5, 1.0))
 	_arena().start_game()
+	GameManager.start_game()
 
-func _on_atk_mode_pressed(mode: int) -> void:
-	_arena().debug_attack_mode = mode
-	_refresh_atk_ui(mode)
+func _on_atk_mode_pressed(_mode: int) -> void:
+	pass  # legacy — attack mode replaced by team skill system
 
 func _on_storm_pressed() -> void:
 	_arena().spawn_electric_storm()
 
-func _refresh_atk_ui(mode: int) -> void:
-	atk_mode_label.text = "Attack: %s" % ATK_MODE_NAMES.get(mode, "?")
-	var active_color: Color = ATK_BTN_COLORS.get(mode, Color.WHITE)
-	atk_mode_label.add_theme_color_override("font_color", active_color)
-	var modes := [-1, 0, 1, 2, 3, 4, 5]
-	for i in atk_btns.size():
-		var btn: Button = atk_btns[i]
-		var col: Color = ATK_BTN_COLORS[modes[i]]
-		var dim: bool = modes[i] != mode
-		btn.add_theme_color_override("font_color",
-			col if not dim else Color(col.r, col.g, col.b, 0.4)
-		)
+func _on_private_ult_pressed(team: int) -> void:
+	# Force-fire by filling the first alive avatar's meter to 100
+	var arena := _arena()
+	var list: Array = arena._avatars_a if team == 1 else arena._avatars_b
+	for av in list:
+		if is_instance_valid(av) and av.get("_alive") and not av.get("_respawning"):
+			if av.has_method("add_private_ult"):
+				av.add_private_ult(100.0)
+			break
+
+func _refresh_atk_ui(_mode: int) -> void:
+	pass  # legacy — no-op
+
+func _set_auto_atk_mode(mode: String) -> void:
+	var arena := _arena()
+	if arena:
+		arena.auto_attack_mode = mode
+	for mid in _atk_mode_btns:
+		var btn: Button = _atk_mode_btns[mid]
+		if mid == mode:
+			btn.add_theme_color_override("font_color", Color(1.0, 0.85, 0.0, 1.0))
+		else:
+			btn.add_theme_color_override("font_color", Color(0.62, 0.62, 0.62, 1.0))

@@ -1,0 +1,7 @@
+[gd_scene format=3 uid="uid://tum0aapeuhqm"]
+
+[ext_resource type="Script" uid="uid://swordqiscript01" path="res://effects/SwordQi.gd" id="1_script"]
+
+[node name="SwordQi" type="Node2D"]
+z_index = 5
+script = ExtResource("1_script")

@@ -1128,6 +1128,167 @@ Phase 8 — Neutral Effects:
 
 ---
 
+## Skill System v2.0 — กำลังภายใน Theme (Patch 1.0)
+
+### Team Themes
+
+#### Team A: White Sect — Wudang (ทีมขาว)
+- Colors: White, Gold, Cyan
+- Style: Pure chi energy, flowing internal martial arts
+- Character: White robed martial artist
+
+#### Team B: Dark Sect — Demon Cult (ทีมดำ)
+- Colors: Black, Purple, Blood Red
+- Style: Yin dark energy, explosive power arts
+- Character: Dark robed martial artist
+
+---
+
+### Skill Taxonomy
+
+#### 1. Dash — Tier 1 (1 baht, gift: gift_box)
+
+```
+Auto-triggers on donate. Avatar dashes 200px forward, invincible 0.2s, particle trail.
+
+Team A — Cloud Step (ก้าวเมฆ):
+  Visual: white wind streak + fading footprints, cyan glow
+
+Team B — Shadow Blink (ทะยานเงา):
+  Visual: black smoke puff at origin, reappear 200px ahead with dark sparks
+```
+
+#### 2. Shield — Tier 1 (1 baht, gift: donut)
+
+```
+Auto-triggers on donate. Bubble stays on avatar 5s or until 1 hit absorbed.
+
+Team A — Iron Shirt Chi (เกราะชี่เหล็ก):
+  Visual: gold/white Line2D bubble ring pulse
+  Mechanic: absorbs next 1 hit fully (any damage)
+
+Team B — Demon Shell (เปลือกมาร):
+  Visual: black/red obsidian barrier ring with spikes
+  Mechanic: absorbs next 1 hit + reflects 20% damage back to attacker
+```
+
+#### 3. Buff
+
+```
+T1 (1 baht, gift: panda) — ATK buff:
+  Team A — Chi Gathering (รวมพลังชี่): white aura ring, +20% ATK 20s
+  Team B — Blood Rage (คลั่งโลหิต):   red fire aura,   +20% ATK 20s
+
+T2 (5 baht, gift: ice_cream, secondary effect):
+  Team A — White Lotus Veil (ม่านบัวขาว): white sparkle burst, +15 HP team heal
+  Team B — Dark Hunger (หิวมืด):          dark tendrils aura, lifesteal 20% dmg→HP 20s
+```
+
+#### 4. Attack Unique Skills
+
+```
+T1  Free (auto basic)   Palm Strike (ตบฝ่ามือ)    / Iron Fist (หมัดเหล็ก)         × 1
+T2  1B   rose           Sword Qi (ดาบชี่)          / Dark Needle (เข็มมืด) ×3 spread × 2
+T3  5B   ice_cream      White Crane (นกกระเรียนขาว)/ Tiger Claw (เล็บเสือ) 3-slash  × 2/hit
+T4a 10B  rose_bouquet   Tai Chi Vortex (วังวนไทชี) / Dark Tornado (พายุมืด) pull AoE × 3.5
+T4b >10–50B (value)     Heaven Palm (ฝ่ามือฟ้า)    / Shadow Eruption (ระเบิดเงา)    × 5 + KB
+T4c >50–100B universe   White Dragon Beam           / Black Serpent DoT beam          × 8
+T4d >100B whale_gift    Transcendence (羽化登仙)    / Abyss Annihilation (滅世)       × 15 + stun
+```
+
+**T4b note:** Node.js sends `donation_value` (baht) in JSON; GameManager routes to T4a vs T4b vs T4c by value threshold at runtime.
+
+**Visual direction per tier:**
+- T1: simple orb/punch effect (reuse PlayerAttackEffect base)
+- T2: single projectile with team-colored shader
+- T3: multi-hit burst, angular / feather shapes
+- T4a: AoE Polygon2D + GPUParticles2D explosion
+- T4b: large shockwave ring + knockback
+- T4c: Line2D beam with glow layers (extend LaserAttackEffect)
+- T4d: full-screen flash + massive particle nova (no pause, unlike charge ultimate)
+
+---
+
+#### 5. Player Avatar Private Ultimate
+
+```
+Each avatar has an independent private ultimate meter (0–100%).
+At 100% → auto-trigger team private ultimate (no game pause, no queue).
+```
+
+##### Meter Fill Sources
+
+```
+Deal damage hit:    +2% per hit  (+1% extra per 10 DMG dealt above base)
+Receive damage hit: +3% per hit  (+1% extra per 10 DMG received above base)
+T4d strike dealt:   +15% bonus
+```
+
+##### Ultimate Skills
+
+```
+Team A — Dragon Soul Ascension (จิตวิญญาณมังกรฟ้า):
+  Visual: white/cyan dragon silhouette bursts from avatar, 0.8s animation
+  Effect: 300 DMG AoE (300px radius around attacker) + self-heal 50% max HP
+
+Team B — Demon King's Descent (มารราชาลงมา):
+  Visual: dark/purple demon aura explosion from avatar, 0.8s animation
+  Effect: 300 DMG + 1.5s stun to enemies within 300px + lifesteal 20% of dmg dealt
+```
+
+##### Private Ultimate Bar UI (on avatar)
+
+```
+Bar size: 40×4 px, positioned below HP bar
+Color:    Team A = cyan→white gradient left-to-right
+          Team B = purple→red gradient
+At 100%:  bar flashes + small "ULTIMATE!" label above avatar (fades in 0.4s)
+On fire:  bar immediately resets to 0, dragon/demon visual spawns at avatar position
+```
+
+---
+
+### Gift → Skill Routing Table (Option B — by gift name)
+
+```
+Gift Name       Baht   Skill Type      Effect
+──────────────────────────────────────────────────────
+rose            1B     Attack T2       Sword Qi / Dark Needle
+donut           1B     Shield T1       Iron Shirt Chi / Demon Shell
+gift_box        1B     Dash T1         Cloud Step / Shadow Blink
+panda           1B     Buff T1         Chi Gathering / Blood Rage
+ice_cream       5B     Attack T3       White Crane / Tiger Claw
+                       + Buff T2       White Lotus Veil / Dark Hunger (team)
+rose_bouquet    10B    Attack T4a      Tai Chi Vortex / Dark Tornado
+universe        >50B   Attack T4c      White Dragon Beam / Black Serpent
+                       + charge meter +100% (triggers cinematic ultimate)
+whale_gift      >100B  Attack T4d      Transcendence / Abyss Annihilation
+                       + private meter +30%
+```
+
+For gifts with `donation_value` field (Node.js sends actual baht amount):
+- 10B < value ≤ 50B  → T4b
+- 50B < value ≤ 100B → T4c (universe equivalent)
+- value > 100B       → T4d (whale)
+
+---
+
+### Charge Ultimate vs Private Ultimate — Comparison
+
+```
+                  Charge Ultimate          Private Ultimate
+─────────────────────────────────────────────────────────
+Trigger:          universe gift → 100%     personal meter 100% (auto)
+Scope:            team-wide cinematic      individual avatar burst
+Game pause:       yes (10s cinematic)      no
+Visual scale:     full video + shockwave   avatar-radius dragon/demon
+Frequency:        rare (big gift needed)   common (fills in combat)
+Queue:            yes (sequential)         no queue (instant per avatar)
+Counter window:   yes (spacebar parry)     no
+```
+
+---
+
 ## Technical Architecture
 
 ### Class Structure

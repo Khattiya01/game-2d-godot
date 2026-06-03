@@ -1,0 +1,7 @@
+[gd_scene format=3 uid="uid://c8wp5k7sylqv1"]
+
+[ext_resource type="Script" uid="uid://darkhungerscr01" path="res://effects/DarkHunger.gd" id="1_script"]
+
+[node name="DarkHunger" type="Node2D" unique_id=460000001]
+z_index = 4
+script = ExtResource("1_script")

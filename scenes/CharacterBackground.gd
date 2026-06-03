@@ -16,6 +16,14 @@ func _ready() -> void:
 	_load_idle_textures()
 	_start_idle_animations()
 
+# Returns patch-specific asset path, falling back to base path if not found.
+func _resolve_path(filename: String, team: String) -> String:
+	var patch := GameManager.current_patch
+	var patch_path := "res://assets/characters/%s/%s/%s" % [patch, team, filename]
+	if ResourceLoader.exists(patch_path):
+		return patch_path
+	return "res://assets/characters/%s/%s" % [team, filename]
+
 func _setup_rects() -> void:
 	# Size each TextureRect to fill its half of the screen at runtime.
 	var vp := get_viewport().get_visible_rect().size
@@ -29,9 +37,8 @@ func _setup_rects() -> void:
 	team_b_sprite.size    = Vector2(half_w, vp.y)
 
 func _load_idle_textures() -> void:
-	# Load idle sprite for both teams if assets exist
-	_try_set_texture(team_a_sprite, IDLE_PATH.format({"team": "team_a"}))
-	_try_set_texture(team_b_sprite, IDLE_PATH.format({"team": "team_b"}))
+	_try_set_texture(team_a_sprite, _resolve_path("bg_idle.jpg", "team_a"))
+	_try_set_texture(team_b_sprite, _resolve_path("bg_idle.jpg", "team_b"))
 
 func _start_idle_animations() -> void:
 	# Play idle loop if animation is defined in editor
@@ -46,16 +53,14 @@ func switch_character(team: String) -> void:
 	team_b_sprite.visible = (team == "team_b")
 
 func play_ultimate_pose(team: String) -> void:
-	# Transition sprite to ultimate pose; UltimateEffect calls return_to_idle when done
 	var sprite := team_a_sprite if team == "team_a" else team_b_sprite
-	_try_set_texture(sprite, ULTIMATE_PATH.format({"team": team}))
+	_try_set_texture(sprite, _resolve_path("ultimate_pose.jpg", team))
 	var tween := create_tween()
 	tween.tween_property(sprite, "modulate:a", ULTIMATE_ALPHA, 0.15)
 
 func return_to_idle(team: String) -> void:
-	# Fade back to idle texture after ultimate ends
 	var sprite := team_a_sprite if team == "team_a" else team_b_sprite
-	_try_set_texture(sprite, IDLE_PATH.format({"team": team}))
+	_try_set_texture(sprite, _resolve_path("bg_idle.jpg", team))
 	var tween := create_tween()
 	tween.tween_property(sprite, "modulate:a", IDLE_ALPHA, 0.3)
 

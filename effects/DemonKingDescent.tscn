@@ -1,0 +1,7 @@
+[gd_scene format=3 uid="uid://cnmjctrle0jvk"]
+
+[ext_resource type="Script" uid="uid://demonkingdesscr1" path="res://effects/DemonKingDescent.gd" id="1_script"]
+
+[node name="DemonKingDescent" type="Node2D"]
+z_index = 5
+script = ExtResource("1_script")

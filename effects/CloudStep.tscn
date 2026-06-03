@@ -1,0 +1,7 @@
+[gd_scene format=3 uid="uid://d3271cwt1rab5"]
+
+[ext_resource type="Script" uid="uid://dcloudstepscr1" path="res://effects/CloudStep.gd" id="1_script"]
+
+[node name="CloudStep" type="Node2D" unique_id=310000001]
+z_index = 5
+script = ExtResource("1_script")

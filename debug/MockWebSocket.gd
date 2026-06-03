@@ -5,11 +5,16 @@ extends Node
 ## whether use_mock is true or false.
 ##
 ## Key map:
-##   1  →  chat  "1"  (join Team A)
-##   2  →  chat  "2"  (join Team B)
-##   Q  →  gift  rose      from Team A
-##   W  →  gift  universe  from Team B
-##   E  →  gift  rose      from Team B   (extra: B fires rose)
+##   1  →  chat  "1"       (join Team A)
+##   2  →  chat  "2"       (join Team B)
+##   Q  →  gift  rose      Team A  (attack_t2)
+##   W  →  gift  universe  Team B  (attack_t4c + ultimate meter)
+##   E  →  gift  rose      Team B  (attack_t2)
+##   R  →  gift  donut     Team A  (shield_t1)
+##   T  →  gift  gift_box  Team A  (dash_t1)
+##   Y  →  gift  panda     Team A  (buff_t1)
+##   U  →  gift  ice_cream Team A  (attack_t3 + buff_t2)
+##   I  →  gift  whale_gift Team A (attack_t4d)
 ##   L  →  like  ×10
 
 signal chat_received(username: String, message: String, avatar_url: String)
@@ -17,12 +22,17 @@ signal gift_received(username: String, gift_name: String, avatar_url: String, fr
 signal like_received(username: String, count: int)
 
 const _KEY_MAP := {
-	KEY_1: {"type": "chat",  "msg": "1",         "team": 0},
-	KEY_2: {"type": "chat",  "msg": "2",         "team": 0},
-	KEY_Q: {"type": "gift",  "msg": "rose",      "team": 1},
-	KEY_W: {"type": "gift",  "msg": "universe",  "team": 2},
-	KEY_E: {"type": "gift",  "msg": "rose",      "team": 2},
-	KEY_L: {"type": "like",  "msg": "",          "team": 0},
+	KEY_1: {"type": "chat",  "msg": "1",           "team": 0},
+	KEY_2: {"type": "chat",  "msg": "2",           "team": 0},
+	KEY_Q: {"type": "gift",  "msg": "rose",        "team": 1},
+	KEY_W: {"type": "gift",  "msg": "universe",    "team": 2},
+	KEY_E: {"type": "gift",  "msg": "rose",        "team": 2},
+	KEY_R: {"type": "gift",  "msg": "donut",       "team": 1},
+	KEY_T: {"type": "gift",  "msg": "gift_box",    "team": 1},
+	KEY_Y: {"type": "gift",  "msg": "panda",       "team": 1},
+	KEY_U: {"type": "gift",  "msg": "ice_cream",   "team": 1},
+	KEY_I: {"type": "gift",  "msg": "whale_gift",  "team": 1},
+	KEY_L: {"type": "like",  "msg": "",            "team": 0},
 }
 
 var _counter: int = 0

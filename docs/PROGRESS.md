@@ -49,308 +49,7 @@
 
 ## In Progress 🔄
 
-- Phase 2-D: Boss Clear Rewards ✅ Complete — Phase 2 fully done
-- Phase 3-A: Counter-Ultimate System ✅ Complete
-- Phase 3-B: Ultimate Meter System ✅ Complete
-- Phase 3-C: Team Synergy & Combo Chains ✅ Complete
-
----
-
-## Todo — Phase 1 (Core Progression Systems) ❌
-
-### A. Player Leveling System
-- [x] **PlayerStats.gd** (AutoLoad) — 2026-05-31
-- [x] **AvatarStats.gd** (component on PlayerAvatar) — 2026-05-31
-- [x] **PlayerAvatar.gd integration** — player_id, take_damage(killer_id), die→on_kill, level-up glow+resize — 2026-05-31
-  - Track per-player: current_level, exp_accumulated, total_exp_for_kills, total_exp_for_likes
-  - EXP formula: `50 × 4^(level-2)` exponential curve
-  - HP formula: `100 + (level^1.8 × 50)`
-  - DMG formula: `10 × (1 + level × 0.15)`
-  - Level cap: 10 (can extend beyond)
-  - Signals: `level_changed(player_id, new_level)`, `exp_gained(player_id, amount)`, `player_died(player_id)`
-
-- [x] **AvatarStats.gd** (component on PlayerAvatar) — exp_updated signal, get_exp_progress(), EXP bar visual on avatar — 2026-05-31
-- [x] **EXP Source Integration** — 2026-05-31
-  - Kill: PlayerStats.on_kill awards exp to killer
-  - Like: GameManager.on_like_received → PlayerStats.add_exp(username, count, "like")
-  - Boss clear: PlayerStats.on_boss_cleared (ready, wires in when BossManager exists)
-  - UI: Arena.spawn_exp_gain_text() shows "+N EXP" at kill location
-  - Arena: trigger_effect_requested → MicroEffect now connected; on_like spawns at avatar pos
-
-### B. Avatar Elimination & Respawn
-- [x] **Avatar Elimination & Respawn** — 2026-05-31
-  - die() → _start_respawn(): red flash, level-1 sync, size shrink tween, teleport random zone
-  - 3-second countdown label "3...2...1...Ready!" above avatar; semi-transparent (modulate 0.4)
-  - _finish_respawn(): HP restored to new level max, full opacity, resume movement + attack
-  - _process(): physics and attacks frozen during _respawning; floating bob continues
-  - Arena: get_nearest_on_team/excluding + damage_team_all skip _alive==false avatars
-  - Arena.add_score(3-_team, 1) called directly in die() (replaced old avatar_died emit)
-
-### C. HP Restore via Combos & Donations
-- [x] **ComboTracker.gd** (AutoLoad) — 2026-06-01
-  - Track consecutive likes: like_combo_count
-  - Track consecutive donations: donate_combo_count
-  - Reset on non-action (>5 sec idle)
-  - Milestones fire at ×3, ×5, ×10; counter continues until ×10 then resets
-  - Thresholds:
-	- Like ×3: +10 HP random avatar
-	- Like ×5: +25 HP each avatar
-	- Like ×10: +100 HP each avatar
-	- Donate ×3: +15 HP team
-	- Donate ×5: +50 HP team
-	- Donate ×10: +100 HP team
-  - DMG boost (Donate ×5) and ultimate meter boost (Donate ×10) are TODO Phase 3
-  - GameManager.on_gift_received → ComboTracker.add_donation(team)
-  - GameManager.on_like_received → ComboTracker.add_like(team)
-  - Arena connects heal_requested + combo_milestone signals in _ready()
-  - DebugPanel: Like×3 A/B and Don×3 A/B buttons for testing
-
-- [x] **HP Restore Animation** — 2026-06-01
-  - PlayerAvatar.heal(amount): HP clamped to max, HP bar flashes green, returns to normal
-  - "+N HP" floating label in green (same tween pattern as damage numbers)
-  - Glow ring flashes green then back to team color
-  - Arena.heal_team(team, amount): heals all alive/non-respawning avatars on team
-  - Arena.heal_random_avatar(team, amount): heals one random alive avatar
-  - Arena.spawn_combo_announce(text, team): pop-in label rises from zone center
-
-### D. Donation Type Scaling
-- [x] **Update donation EXP/HP values** — 2026-06-01
-  - GameManager.GIFT_TABLE: rose (+10 EXP, +5 HP), ice_cream (+25 EXP, +20 HP), rose_bouquet (+50 EXP, +50 HP), universe (+250 EXP, +150 HP)
-  - on_gift_received: PlayerStats.add_exp(donor, exp, "donate") + passes hp in trigger_effect_requested
-  - Arena._on_trigger_effect_requested: routes all tiers (small/medium → gift_attack, ultimate → ultimate_attack) + heal_team from hp field
-  - Also fixes bug: TikTok path previously dropped rose/universe visual attacks (only "micro" was handled)
-  - Arena.debug_donation_all(team, gift_name): applies GIFT_TABLE EXP+HP to ALL avatars on team
-  - DebugPanel: "Donation Scale (All)" section — Rose A/B, IceCrm A/B, Univ A/B buttons
-  - ultimate meter fill from universe: TODO Phase 3 (UltimateCharger not yet built)
-
----
-
-## Todo — Phase 2 (Boss System & Difficulty Scaling) ❌
-
-### A. Boss Spawning & Phases
-- [x] **BossManager.gd** (AutoLoad) — 2026-06-01
-  - States: IDLE → ANNOUNCING → ACTIVE → RESOLVED
-  - Auto-spawn every 240s of active game, or score gap ≤ 20 after 60s
-  - request_spawn() for manual/debug trigger
-  - get_boss_hp/dmg/time(level) formulas: HP=100×1.6^L, DMG=25×1.5^L, TIME=120+L×10
-  - On defeat: current_boss_level++, PlayerStats.on_boss_cleared(), Arena.exit_boss_phase(true)
-  - On timeout: same level retry, Arena.exit_boss_phase(false)
-
-- [x] **Boss spawn trigger logic** — 2026-06-01
-  - 10-second warning overlay with darkening + "BOSS LEVEL X APPROACHING!" text
-  - Arena.start_boss_announce() creates CanvasLayer overlay (layer=8)
-  - Arena.enter_boss_phase() freezes avatars, blocks new spawns
-  - Arena.exit_boss_phase() unfreezes, awards rewards on success
-
-- [x] **Boss.tscn + Boss.gd** — 2026-06-01
-  - Code-drawn visuals: blue left half (Team A) + red right half (Team B), center divider
-  - HP bar above boss body with current/max label; color: green→red as depletes
-  - Phase countdown timer below boss body; turns yellow at 60s, red at 30s
-  - Attacks every 3 sec → Arena.damage_team_boss_attack(1/2, dmg)
-  - Attack flash (red) and hit flash (green) on boss body
-  - Damage numbers float up from boss on hit
-  - "BOSS DEFEATED!" / "Boss survived..." text on resolve
-  - Boss entered at (960, 280) on game_layer; avatar attacks auto-retarget it
-  - Avatars use basic attack only during boss phase (no chain/laser)
-  - Arena.get_nearest_enemy() returns boss node when is_boss_phase==true
-  - Fixed: TikTok chat→spawn now wired via GameManager.spawn_avatar_requested signal
-  - DebugPanel: "Spawn Boss" button + live "Lv.X" label
-
-### B. Boss Damage Distribution
-- [x] **Boss attack damage formula** — 2026-06-01 (implemented in Phase 2A)
-  - Arena.damage_team_boss_attack(team, total_dmg)
-  - 30% to highest-level avatar + 70% split evenly among ALL alive avatars (including highest)
-  - maxi(1, dmg) ensures no zero-damage hits; skips dead/respawning avatars
-
-- [x] **Team HP Pool indicator** — 2026-06-01
-  - Arena.get_team_hp_ratio(team): sum(current_hp) / sum(max_hp) across all avatars → 0.0-1.0
-  - Arena.get_team_hp_totals(team): returns Vector2i(cur_sum, max_sum) for label text
-  - Boss.gd: two bars added below the phase timer (A POOL left, B POOL right)
-  - Bars are 130×12px, color green→yellow→red as HP depletes
-  - Text label inside each bar: "cur/max" updated every frame during boss phase
-
-### C. Boss Phase Timing
-- [x] **Timer scaling per boss level** — 2026-06-01
-  - Formula: 120 + (level × 10) seconds already in BossManager.get_boss_time()
-  - UI: Large center-bottom CanvasLayer overlay (600×104px) with 56px countdown timer
-  - Color: white → yellow at 60s → red at 30s
-
-- [x] **Boss phase flow** — 2026-06-01
-  - Avatars freeze via set_boss_phase(true), spawn blocked while is_boss_phase
-  - Cinematic camera: Camera2D added in Arena._ready(); tweens to (960,450) zoom 1.05× on enter, returns to (960,540) zoom 1.0 on exit
-  - Success: score_bonus (100×level) both teams, 50% HP heal, overlay removed, camera returns
-  - Failure (timeout): announce, overlay removed, camera returns, same boss level retry
-
-### D. Boss Clear Rewards
-- [x] **On boss defeat** — 2026-06-01
-  - EXP: PlayerStats.on_boss_cleared(level) → +500×level to all registered players ✅ (was in Phase 2A)
-  - Score: add_score(1/2, 100×level) in exit_boss_phase ✅ (was in Phase 2A)
-  - HP restore: _heal_all_half() in exit_boss_phase ✅ (was in Phase 2A)
-  - Visual: _spawn_boss_defeat_celebration(level) — CanvasLayer layer=12; white screen flash; 90px gold "BOSS DEFEATED!" pop-in; 44px purple "LEVEL X CLEARED!"; 28px green "+EXP • +Score • +50% HP" reward line; fades out over 3.85s
-  - Fireworks: _spawn_fireworks(level) → 6+level bursts (cap 14) staggered 0–2.5s; _burst_firework() — 16-dot colored explosion, fly outward 52–115px, fade; 6 palette colors
-
----
-
-## Todo — Phase 3 (Team Mechanics & Game Modes) ❌
-
-### A. Counter-Ultimate System
-- [x] **CounterUltimate.gd** (AutoLoad) — 2026-06-01
-  - `start_window(defender_team)` — fire-and-forget coroutine; awaits 6 s, then opens 3 s window
-  - Generation counter (`_window_gen`) prevents stale coroutines from opening stale windows
-  - `get_damage_multiplier()` → 0.3 (parried) or 1.0 (hit) — called by UltimateEffect at impact
-  - `cancel()` — public; clears active window and invalidates pending coroutines; hooked into DebugPanel cancel button
-  - UltimateController._play_cinematic: calls `CounterUltimate.start_window(3 - from_team)` fire-and-forget after effect is added
-  - UltimateEffect._show_impact: reads multiplier → damage = int(500 × mult); screen shake 18→5 on parry
-  - Outcome texts: "PARRIED!" gold (CounterUltimate, on spacebar press); "HIT!" red (UltimateEffect, if mult=1.0)
-
-- [x] **UI Counter Prompt** — 2026-06-01
-  - CanvasLayer layer=15; 560×196 px panel centered at (960, 860); team-tinted background
-  - Gold "COUNTER WINDOW!" header; 3D-style SPACEBAR key (300×58 px); instruction text
-  - Countdown bar 480×20 px — yellow → orange → red as ratio decreases via _refresh_countdown()
-  - Fades in over 0.25 s; removed immediately on press or timeout via _remove_prompt_ui()
-
-### B. Ultimate Meter System
-- [x] **UltimateCharger.gd** (AutoLoad) — 2026-06-01
-  - `_meter {"team_a": 0.0, "team_b": 0.0}` clamped 0–100
-  - `add_charge(team, amount)` — adds, clamps, refreshes bar; fires at 100% (transition guard: only fires when crossing from below 100)
-  - `add_charge_both(amount)` — checks both prev values first, then updates & fires independently
-  - `reset_meters()` — both teams → 0; called on `UltimateController.ultimate_finished`
-  - Charge sources wired: rose+2%, ice_cream+5%, rose_bouquet+8%, universe+100% (via GameManager.GIFT_TABLE "meter" field in on_gift_received); like_x3+5%, donate_x3+5% (via ComboTracker.combo_milestone); boss_defeated+20% shared
-  - Win streak ×3 charge: TODO Phase 4 (no win tracking yet)
-  - Signals: `ultimate_ready(team)`, `meter_updated(team, percent)`
-  - **Route fix**: Arena._on_trigger_effect_requested "ultimate" branch removed; Arena.on_gift("universe") → UltimateCharger.add_charge(100); DebugPanel Ultimate A/B → UltimateController.request_ultimate direct (bypass meter for test)
-
-- [x] **Ultimate Meter UI** — 2026-06-01
-  - CanvasLayer layer=4 (below dark focus overlay layer=5 during cinematics)
-  - Team A: top-left (x=12, y=8–48), blue fill; Team B: top-right (x=1548, y=8–48), red fill
-  - "ULTIMATE METER A/B" title (11px), dark bg bar (360×18px), colored fill, "N%" percent label centered on bar
-  - "READY!" label (13px gold) below bar — appears with looping pulse tween when meter=100%, stops and hides on reset
-  - Fill color lerps from dim base to bright as ratio increases
-
-### C. Team Synergy & Combo Chains (Enhanced)
-- [x] **Extend combo rewards to donation types** — 2026-06-01
-  - **Updated combo texts** in ComboTracker to show meter/ATK buff info in announcements
-  - **Full meter charges** in UltimateCharger: like_x3+5%, like_x5+20%, like_x10+50%(both), donate_x3+10%, donate_x10+20%
-  - **Damage buff system** in Arena: `_dmg_buff {team: {mult, timer}}` decremented in `_process`; `apply_damage_buff(team, mult, duration)` extends active buff; `get_attack_mult(team) -> float`
-	- donate_x5 → +50% ATK 5s; donate_x10 → +100% ATK 10s (wired in Arena._on_combo_milestone)
-  - **Damage mult propagation**: PlayerAvatar._do_attack queries `get_attack_mult(_team)` → passes as `"damage_mult"` in fire() data to all 3 effects (PlayerAttack, Laser, Lightning); each applies `int(BASE_DMG * _damage_mult)`
-  - **Mixed combo (PERFECT SYNC)**: ComboTracker.combo_sync signal fires when like≥3 AND donate≥3 simultaneously; resets both to 0; generation-safe (sync can't fire on same event as x10 reset)
-    - Arena._on_combo_sync → heal_team(+75 HP) + announce "PERFECT SYNC!" + _spawn_sync_burst (8 rainbow fireworks in zone)
-    - UltimateCharger._on_combo_sync → add_charge(team, 20%)
-
----
-
-## Todo — Phase 4 (Leaderboard & Stream Integration) ❌
-
-### A. Real-time Leaderboard
-- [x] **Leaderboard.gd** (AutoLoad) — 2026-06-01
-  - Track per stream: donation_score (GIFT_TABLE pts), kill_count, level, boss_clears
-  - Wired: PlayerStats.level_changed, player_died; GameManager.trigger_effect_requested, spawn_avatar_requested, game_state_changed; BossManager.boss_defeated
-  - Signals: `ranking_changed()`, `new_milestone(player_id, type)`
-  - Queries: get_top_donors(n), get_top_killers(n), get_top_levels(n) → sorted Array
-
-- [x] **LeaderboardUI.tscn + .gd** — 2026-06-01
-  - CanvasLayer layer=3; code-driven panels at y=942 (bottom of screen)
-  - Left: TOP DONORS (blue border); Center: TOP KILLERS (green border); Right: TOP LEVELS (red border)
-  - Each panel: dark bg, title, 3 ranked rows (gold/silver/bronze); real-time via ranking_changed signal
-  - Instanced in Arena.tscn
-
-### B. Streamer Integration
-- [x] **StreamerFeed.gd** (AutoLoad) — 2026-06-01
-  - session_likes + session_donate_pts tracking
-  - Like counter: live count + progress bar toward milestones (50/100/200/500/1k/5k/10k)
-  - Donation toasts: slide-in from right, per-tier color (rose/ice_cream/universe), auto-fade 4s
-  - Milestone banners: center-top slide-in for like milestones, level milestones, donor milestones, boss clears
-  - Stretch goal bar: 5 tiers (50/100/200/500/1k pts), tier-unlock label
-  - GameManager.like_event signal added; emitted in on_like_received for real-time per-like tracking
-  - CanvasLayer layer=2; resets on game WAITING state
-
----
-
-## Todo — Phase 5 (End Game & Long-term Engagement) ❌
-
-### A. End of Stream Stats
-- [x] **SessionStats.gd** (AutoLoad) — 2026-06-01
-  - Tracks: highest_boss_cleared, highest_player_level, total_kills, total_boss_clears, total_ultimates, perfect_syncs
-  - 9 achievements: First Blood, Power Player, Legendary Lv10, Boss Slayer, Boss Master x3, Like Storm 500, Whale Alert, Perfect Sync, Ultimate Frenzy
-  - achievement_unlocked signal; get_snapshot() returns full data dict for EndGameScreen
-  - Saves user://session_history.json: last_session + all_time (best_boss, total_streams, streak)
-  - Loads history on _ready(); increments streak only if boss cleared that session
-  - Triggers EndGameScreen 3 s after GAME_OVER; reset_session() on WAITING
-
-- [x] **EndGameScreen.gd** (code-driven CanvasLayer layer=55) — 2026-06-01
-  - Shows 3 s after game_over via SessionStats._show_screen()
-  - Header: "STREAM ENDED", boss level cleared, stream # + streak
-  - 3-column leaderboard (TOP DONORS / TOP KILLERS / TOP LEVELS) — 5 rows each, team-colored names
-  - Achievement bubbles: up to 9 centered pills, per-achievement color, auto-hides unused
-  - Stats row: ♥ Likes | Donation Pts | Total Kills | Bosses Cleared | Win Streak
-  - Footer: "Next stream: reach Boss Level X!" + pulsing dismiss hint
-  - Fade-in 0.55 s slide; auto-dismiss after 25 s; any key/click dismisses
-  - No .tscn — fully code-driven, instanced from SessionStats on first GAME_OVER
-
-### B. Stretch Goals
-- [x] **StretchGoal.gd** (AutoLoad) + **StretchGoalUI** (code-driven) — 2026-06-01
-  - 5 tiers at 50/100/200/500/1000 donation pts
-  - Each tier fires a real gameplay effect:
-    - 50pts  "Extra Visual Effects" → +20% ATK both teams 60s
-    - 100pts "Boss Rush!"           → BossManager.request_spawn()
-    - 200pts "Dragon Awakening"     → +200HP both + +50% ATK 45s
-    - 500pts "Legendary Mode"       → +500HP both + +100% ATK 90s
-    - 1000pts "ULTIMATE EVENT!"     → UltimateController fires both teams
-  - UI: right strip x=1548, y=282; 5 tier cells (locked/✓), large progress bar, pts counter, next-tier label
-  - Unlock announcement: overlay (layer=14), slide-in panel with tier title+desc, flash + fade in 3s
-  - register_arena() wired from Arena._ready(); goal_tier_unlocked signal for other listeners
-  - Resets on GameManager WAITING state
-
-### C. Infinite Boss Loop Pacing
-- [x] **Adjust duel phase duration** — 2026-06-01
-  - `get_duel_interval(boss_level)`: 180s at Lv1, +30s/level, capped at 300s (5 min)
-    - Lv1=180s | Lv2=210s | Lv3=240s | Lv4=270s | Lv5+=300s
-  - Replaces old fixed `AUTO_SPAWN_INTERVAL=240s`
-  - Close-match early trigger scaled to `interval × 0.35` min wait (was hardcoded 60s)
-  - `_duel_interval` recalculated after every boss_defeated and boss_timed_out
-  - `signal duel_phase_started(interval_secs)` emitted when duel resumes
-  - Countdown HUD (CanvasLayer layer=3, center x=820, y=74, w=280):
-    - "BOSS Lv.X" label + draining bar (green→yellow→red) + "M:SS" countdown
-    - Visible only during duel phase (IDLE + game_active); hidden during boss
-
----
-
-## Todo — Phase 6 (Visual Polish & Character Theming) ❌
-
-### A. Character-Specific Ultimate Visuals
-- [x] **Update UltimateEffect.gd to support team-specific videos** — 2026-06-01
-  - `VIDEO_PATHS` dict: team_a → abyss_awakening_a.ogv, team_b → abyss_awakening_b.ogv
-  - `_start_playback()` uses `VIDEO_PATHS.get(attacker_team)` instead of template string
-  - `_fit_video_to_sprite()` repositions VideoStreamPlayer to match CharacterBackground sprite rect
-
-- [x] **Background Character Display** — 2026-06-01
-  - `CharacterBackground.tscn` instanced in Arena.tscn (was missing — group calls were no-ops)
-  - TeamA_Bg/CharBg + TeamB_Bg/CharBg each fill one half of the screen (960×1080 each), CanvasLayer=-1
-  - Idle: loads `assets/characters/{team}/bg_idle.jpg` at alpha 0.55 on _ready()
-  - Ultimate pose: swaps to `ultimate_pose.jpg`, tweens alpha 0.55→0.85 in 0.15 s
-  - Return to idle: swaps back, tweens alpha 0.85→0.55 in 0.30 s (called by UltimateEffect after effect finishes)
-
-### B. Boss Theming
-- [x] **Boss visual variants** — 2026-06-01
-  - `_get_tier_data()` returns a dict of body_w/h, colors, aura, hp_bar_w per bracket
-  - **AWAKENED** (Lv1-3): 280×110 body, blue/red split, white divider — base look
-  - **ENRAGED** (Lv4-6): 330×130 body, gold divider + gold label, static gold aura backdrop, entrance shake 7.0 + golden flash
-  - **APOCALYPSE** (Lv7+): 380×155 body, dark purple/blood-red split, red divider, pulsing red aura (sin wave in _process), entrance shake 14.0 + dark purple flash
-  - Tier badge subtitle "— AWAKENED / ENRAGED / APOCALYPSE —" rendered inside boss body
-  - HP bar width scales with tier (320 → 360 → 400 px)
-  - `_refresh_hp_bar()` reads `_tier["hp_bar_w"]` instead of hardcoded const
-  - `_spawn_entrance_flash(color, duration)` helper — CanvasLayer layer=18 full-screen rect, fades out
-
-### C. Screen Shake & Feedback
-- [x] **Intensity scaling with boss level** — 2026-06-01
-  - `SHAKE_INTENSITY_MIN=3.0` (Lv1, spec 0.1) → `SHAKE_INTENSITY_MAX=14.0` (Lv10, spec 0.5)
-  - `SHAKE_DURATION_MIN=0.25s` → `SHAKE_DURATION_MAX=0.45s` — also lerped with level
-  - Formula: `t = clamp((level-1)/9, 0, 1)` → `lerp(min, max, t)` for both intensity and duration
-  - Old formula `level × 2.5 + 2.0` reached 27px at Lv10 (overshoot); now capped at 14px
-  - **Ultimate hit**: `SHAKE_HIT_INTENSITY=22.0px` (was 18), `SHAKE_HIT_DURATION=0.65s` (was 0.6) — spec 0.8 normalized
-  - **Parry**: `SHAKE_PARRY_INTENSITY=4.0px` (was 5) — more distinct contrast vs full hit
-  - Shake constants extracted to `const` in both `Boss.gd` and `UltimateEffect.gd`
+*(none)*
 
 ---
 
@@ -360,16 +59,7 @@
 Effects triggered by TikTok gifts that hit **all avatars on both teams simultaneously**.
 Full design spec in `docs/DESIGN.md` → "Neutral Effects System" section.
 
-### A. Electric Storm ⚡ *(ice_cream neutral variant)*
-- [x] **ElectricStorm.tscn + ElectricStorm.gd** — 2026-06-02
-  - Timer 0.35s fires 14 strikes over 5s across random arena positions
-  - Hit: 12 DMG to nearest avatar within 75px; 25% chance stun 1.0s
-  - Chain: if second avatar within 120px → 8 DMG one-hop
-  - Reuse LightningAttackEffect zigzag Line2D visual + cyan bolt shader
-  - Ambient: drifting lightning-static GPUParticles2D backdrop
-  - `fire({arena})` Dictionary API
-
-### B. Meteor Shower ☄️ *(rose_bouquet neutral variant)*
+### A. Meteor Shower ☄️ *(rose_bouquet neutral variant)*
 - [ ] **MeteorShower.tscn + MeteorShower.gd**
   - Spawn 10–14 MeteorProjectile nodes, random x (50–1870), y=-80
   - Each falls speed 700–950 px/s, slight x drift
@@ -400,14 +90,7 @@ Full design spec in `docs/DESIGN.md` → "Neutral Effects System" section.
   - `fire({arena})` Dictionary API
 
 ### E. Arena Integration
-- [x] **Arena.gd: spawn_electric_storm()** — 2026-06-02
-  - preload ElectricStormScene + `spawn_electric_storm()` method
-  - `get_all_alive_avatars() -> Array[Node]` helper (used by ElectricStorm hit detection)
-- [x] **GameManager.gd: neutral_effect_requested signal** — 2026-06-02
-  - Signal added to contract
-- [x] **DebugPanel: "⚡ Electric Storm" button** — 2026-06-02
-  - Code-driven button appended to VBox in _ready(); calls Arena.spawn_electric_storm()
-- [ ] **Dispatcher spawn_neutral_effect(name, data)** — for Meteor / BlackHole / Toxic (Phase 8B-D)
+- [ ] **Dispatcher spawn_neutral_effect(name, data)** — for Meteor / BlackHole / Toxic (Phase 8A-C)
 
 ---
 
@@ -431,6 +114,90 @@ Full design spec in `docs/DESIGN.md` → "Neutral Effects System" section.
   - Monitor WebSocket latency
   - Verify all donation tiers work
   - Debug any desync issues
+
+---
+
+## Todo — Phase 9 (Skill System v2.0 — กำลังภายใน Theme) ❌
+
+Full design spec in `docs/DESIGN.md` → "Skill System v2.0" section.
+
+### A. Team Theme — Patch 1.0 Config ✅
+- [x] Add `current_patch` const to GameManager: `"wudang_dark"` (ขาว vs ดำ)
+- [x] Update PlayerAvatar glow ring: Team A = cyan `Color(0,0.88,1)`, Team B = purple `Color(0.65,0,0.9)` (replace blue/red)
+- [x] Update CharacterBackground: `_resolve_path()` checks `assets/characters/wudang_dark/{team}/` first, falls back to base path
+- [x] Update Arena zone glow shaders + score/team labels to match new team colors (cyan/purple)
+
+### B. Gift → Skill Router (Option B) ✅
+- [x] Expand GameManager.GIFT_TABLE keys: `donut`, `gift_box`, `panda`, `whale_gift` + `skill_type`/`skill_type_2` fields on all entries
+- [x] Add `donation_value` routing in `on_gift_received`: >10–50B → t4b, >50–100B → t4c, >100B → t4d (overrides gift-based tier)
+- [x] GameManager.on_gift_received: emits `skill_type`/`skill_type_2`/`donation_value` in trigger_effect_requested
+- [x] Arena: `spawn_skill(skill_type, team, attacker, target)` dispatcher — all 10 skill types routed; unimplemented fall back to placeholders (see Phase 9-C/D/E/F)
+- [x] Arena: `_on_trigger_effect_requested` updated to call `spawn_skill` when skill_type present; `_get_random_alive_avatar()` helper added
+- [x] MockWebSocket: R=donut, T=gift_box, Y=panda, U=ice_cream, I=whale_gift test keys
+- [x] Node.js JSON spec documented in WSConnector.gd comment: `donation_value` float (baht) optional field
+
+### C. Dash Skill — Tier 1 (gift: gift_box) ✅
+- [x] **CloudStep.tscn + CloudStep.gd** (Team A) — 200px smooth dash, 5-streak white-cyan trail, arrival ring, invincible 0.20s
+- [x] **ShadowBlink.tscn + ShadowBlink.gd** (Team B) — instant 200px blink, purple smoke at origin + 8-spark ring at dest, invincible 0.20s
+- [x] PlayerAvatar: `_is_dashing: bool` flag; physics skipped + `take_damage` blocked while dashing
+- [x] Both scripts: `fire({avatar, arena})` Dictionary API; dash direction = velocity or team forward; clamped to zone bounds
+- [x] Arena: CloudStep/ShadowBlink preloaded; `spawn_skill("dash_t1")` instantiates correct scene by team
+
+### D. Shield Skill — Tier 1 (gift: donut) ✅
+- [x] **ChiShield.tscn + ChiShield.gd** (Team A) — gold/white bubble ring (Line2D + FlashPolygon), absorbs 1 hit fully, 5s max, golden burst on activate, white-gold flash on break
+- [x] **DemonShell.tscn + DemonShell.gd** (Team B) — black/red ring + 8 blood-red Polygon2D spikes, absorbs 1 hit + reflects 20% dmg back to attacker (call_deferred), 5s max
+- [x] PlayerAvatar: `take_damage()` already intercepts via `shield_bubble` group + `absorb_damage(dmg, killer_id)`; killer_id now passed so reflect works
+- [x] Shield visual attached as child of avatar at `position = Vector2.ZERO`; auto-removes on break (0.22s) or timeout (5s fade)
+- [x] Both scripts: `fire({avatar})` Dictionary API; add_to_group("shield_bubble")
+- [x] Arena: ChiShield/DemonShell preloaded; `spawn_skill("shield_t1")` routes by team (was ShieldBubble placeholder)
+- [x] DebugPanel: "Chi Shield A / Demon Shell B" test buttons added (donut gift via on_gift)
+
+### E. Buff Skills ✅
+#### E1. Buff T1 — ATK +20% (gift: panda) ✅
+- [x] **ChiGathering.tscn + ChiGathering.gd** (Team A) — rotating white-cyan orbit ring + rising chi particles, +20% ATK 8s; "ATK +20%" float label on activate
+- [x] **BloodRage.tscn + BloodRage.gd** (Team B) — pulsing blood-red ring + rising fire particles, +20% ATK 8s; "RAGE +20%" label on activate
+- [x] PlayerAvatar: `_personal_atk_mult: float = 1.0` + `_atk_buff_stacks: int` (ref-count for overlap); `dmg_mult *= _personal_atk_mult` in `_do_attack()`
+- [x] Stack-safe: expire decrements counter, resets to 1.0 only when stacks reach 0
+- [x] Arena: ChiGathering/BloodRage preloaded; `spawn_skill("buff_t1")` routes by team
+- [x] DebugPanel: "Chi Gather A / Blood Rage B" buttons (panda gift)
+
+#### E2. Buff T2 (gift: ice_cream secondary alongside T3 attack) ✅
+- [x] **WhiteLotusVeil.tscn + WhiteLotusVeil.gd** (Team A) — 16 white petal streaks + green heal particles burst; `arena.heal_team(team, 15)` instant; 0.85s then queue_free
+- [x] **DarkHunger.tscn + DarkHunger.gd** (Team B) — 6 purple tendril activation + counter-rotating dark ring + dark swirl particles; `_lifesteal_active = true` for 8s; stack-safe ref-count
+- [x] PlayerAvatar: `_lifesteal_active: bool` + `_lifesteal_stacks: int`; in `_do_attack()` heals self `int(est_dmg × 0.20)` after 0.28s delay per attack
+- [x] Both scripts: `fire({avatar, team, arena})` Dictionary API; attached as child of attacker avatar
+- [x] Arena: WhiteLotusVeil/DarkHunger preloaded; `spawn_skill("buff_t2")` routes by team
+- [x] DebugPanel: "Lotus Veil A / Dark Hunger B" buttons (ice_cream gift)
+
+### F. Attack Skills (Team-specific, replace existing generic effects) ✅
+*All scripts: `fire({attacker, target, arena, damage_mult, base_dmg})` Dictionary API*
+- [x] **SwordQi.gd** (T2 A) — white blade projectile, ×2 dmg, cross-flash impact
+- [x] **DarkNeedle.gd** (T2 B) — 3-needle spread fan, ×2 total dmg, chains to nearest enemies
+- [x] **WhiteCrane.gd** (T3 A) — 3 feather arcs, ×2 per feather, staggered 0.08s, white petal burst
+- [x] **TigerClaw.gd** (T3 B) — 3 claw-slash marks at target, ×2 per slash, staggered 0.10s
+- [x] **TaiChiVortex.gd** (T4a A) — spinning concentric rings build-up, ×3.5 AoE 200px, expand rings on burst
+- [x] **DarkTornado.gd** (T4a B) — pull phase (_process) 150px 0.65s then purple burst, ×3.5 AoE 200px
+- [x] **HeavenPalm.gd** (T4b A) — 4-ring shockwave + palm-print 5-line burst, ×5 + knockback 300px, 400px AoE
+- [x] **ShadowEruption.gd** (T4b B) — jagged cracks + 5 dark eruption pillars, ×5 + knockback 300px, 400px AoE
+- [x] **WhiteDragonBeam.gd** (T4c A) — 4-layer wide white/cyan beam + energy-wave shader, ×8 (3 ticks), 1.5s
+- [x] **BlackSerpent.gd** (T4c B) — serpentine wobbling dark/purple beam (sin-wave path), ×8 + DoT 20/s × 3s
+- [x] **Transcendence.gd** (T4d A) — full-screen white flash + 5-ring nova, ×15, stun 2s, AoE 450px
+- [x] **AbyssAnnihilation.gd** (T4d B) — screen dim + void implosion pull → purple explosion, ×15, stun 2s, AoE 450px
+- [x] Arena: `spawn_skill("attack_t2"…"attack_t4d")` fully wired; `_get_avatar_base_dmg` / `_get_avatar_dmg_mult` helpers added
+
+### G. Player Avatar Private Ultimate Bar ✅
+- [x] PlayerAvatar.gd: `_private_ult_meter: float`, `_priv_ult_fired: bool`
+- [x] `add_private_ult(percent)`: clamp 0–100, update CircularBars.set_ult(), call `_fire_private_ultimate()` at 100
+- [x] Meter fill in `take_damage()`: `+3% + dmg/10%` (skips respawning state)
+- [x] Meter fill in `_do_attack()`: `+2% + est_dmg/10%` (skips roll=3 shield)
+- [x] T4d hit bonus: Arena.spawn_skill "attack_t4d" calls `attacker.add_private_ult(15.0)`
+- [x] Auto-trigger: `_fire_private_ultimate()` → flash bar, "ULTIMATE!" label, `arena.spawn_private_ultimate(self)`, reset meter
+- [x] **Bar UI**: 40×4 px in CircularBars._draw() below arc (y=RADIUS+7); Team A cyan→white, Team B purple→red gradient blend; `flash_ult_full()` method
+- [x] CircularBars: `set_team()`, `set_ult()`, `flash_ult_full()` added
+- [x] **DragonSoulAscension.gd+.tscn** (A): S-curve dragon body + wing arcs + cyan rings AoE, 300 DMG 300px, self-heal 50% max HP
+- [x] **DemonKingDescent.gd+.tscn** (B): descent columns + demon crown spikes + purple aura rings, 300 DMG + stun 1.5s 300px, lifesteal 20%
+- [x] Arena: `spawn_private_ultimate()` dispatcher + two new preloads
+- [x] DebugPanel: "Dragon Soul A / Demon King B" buttons → fills first alive avatar meter to 100
 
 ---
 

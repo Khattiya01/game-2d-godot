@@ -1,0 +1,7 @@
+[gd_scene format=3 uid="uid://0b0vcuikdbo"]
+
+[ext_resource type="Script" uid="uid://dragonsoulascscr1" path="res://effects/DragonSoulAscension.gd" id="1_script"]
+
+[node name="DragonSoulAscension" type="Node2D"]
+z_index = 5
+script = ExtResource("1_script")

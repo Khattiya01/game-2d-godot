@@ -1,0 +1,7 @@
+[gd_scene format=3 uid="uid://c83gyyfst8uj5"]
+
+[ext_resource type="Script" uid="uid://shadoweruptionscr001" path="res://effects/ShadowEruption.gd" id="1_script"]
+
+[node name="ShadowEruption" type="Node2D"]
+z_index = 5
+script = ExtResource("1_script")

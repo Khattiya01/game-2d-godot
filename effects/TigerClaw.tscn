@@ -1,0 +1,7 @@
+[gd_scene format=3 uid="uid://djfoch0cm4xpw"]
+
+[ext_resource type="Script" uid="uid://tigerclawscr001" path="res://effects/TigerClaw.gd" id="1_script"]
+
+[node name="TigerClaw" type="Node2D"]
+z_index = 5
+script = ExtResource("1_script")

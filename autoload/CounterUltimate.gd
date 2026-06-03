@@ -1,21 +1,31 @@
 extends Node
 
-## AutoLoad: manages the counter-ultimate spacebar window during enemy cinematics.
+## AutoLoad: manages the counter-ultimate TikTok parry window.
+## Viewers press ❤️ (like) or donate to fill the parry meter within the window.
 ## UltimateController calls start_window() fire-and-forget at cinematic start.
 ## UltimateEffect calls get_damage_multiplier() at impact time to resolve damage.
 
 const WINDOW_OPEN_DELAY := 6.0     # seconds into cinematic before window appears
-const WINDOW_DURATION   := 3.0     # seconds the spacebar window stays open
-const DAMAGE_MULT_HIT   := 1.0     # no counter → full damage
-const DAMAGE_MULT_PARRY := 0.3     # successful counter → 30% damage
+const WINDOW_DURATION   := 3.0     # seconds the window stays open
+const DAMAGE_MULT_HIT   := 1.0     # meter not full → full damage
+const DAMAGE_MULT_PARRY := 0.3     # meter full → 30% damage (70% blocked)
+
+# Fill per TikTok event (0.0–1.0 scale; parry triggers when _fill >= 1.0)
+const FILL_PER_LIKE         := 0.04   # ~25 likes to fill
+const FILL_PER_ROSE         := 0.08   # small gift / any unknown gift
+const FILL_PER_ICE_CREAM    := 0.20   # medium gift
+const FILL_PER_ROSE_BOUQUET := 0.35   # large gift
+const FILL_PER_UNIVERSE     := 0.80   # ultimate gift
 
 var _window_open: bool = false
 var _counter_succeeded: bool = false
 var _window_timer: float = 0.0
-var _window_gen: int = 0            # generation counter guards stale coroutines
+var _fill: float = 0.0              # 0.0 → 1.0; parry triggers at 1.0
+var _window_gen: int = 0
 var _prompt_canvas: CanvasLayer = null
 var _prompt_root: Control = null
 var _countdown_fill: ColorRect = null
+var _parry_fill: ColorRect = null   # the fill meter bar
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
@@ -28,21 +38,14 @@ func _process(delta: float) -> void:
 	if _window_timer <= 0.0:
 		_close_window(false)
 
-func _unhandled_input(event: InputEvent) -> void:
-	if not _window_open:
-		return
-	if event is InputEventKey and event.pressed and not event.echo:
-		if event.keycode == KEY_SPACE:
-			_close_window(true)
-			get_viewport().set_input_as_handled()
-
 # ── Public API ────────────────────────────────────────────────────────────────
 
-# Fire-and-forget: waits 6 s then opens the 3 s counter window.
+# Fire-and-forget: waits 6 s then opens the 3 s parry window.
 # Called by UltimateController without await at the start of each cinematic.
 func start_window(defender_team: int) -> void:
 	cancel()
 	_counter_succeeded = false
+	_fill = 0.0
 	_window_gen += 1
 	var gen := _window_gen
 	await get_tree().create_timer(WINDOW_OPEN_DELAY, true).timeout
@@ -50,7 +53,25 @@ func start_window(defender_team: int) -> void:
 		return
 	_open_window(defender_team)
 
-# Returns 0.3 if player parried, 1.0 otherwise.
+# Called from Arena.on_like() — each TikTok heart fills the parry meter a little.
+func add_like_parry() -> void:
+	if not _window_open:
+		return
+	_add_fill(FILL_PER_LIKE)
+
+# Called from Arena.on_gift() — donations fill the parry meter faster.
+func add_donation_parry(gift_name: String) -> void:
+	if not _window_open:
+		return
+	var amount: float
+	match gift_name.to_lower():
+		"universe":     amount = FILL_PER_UNIVERSE
+		"rose_bouquet": amount = FILL_PER_ROSE_BOUQUET
+		"ice_cream":    amount = FILL_PER_ICE_CREAM
+		_:              amount = FILL_PER_ROSE
+	_add_fill(amount)
+
+# Returns 0.3 if parry succeeded, 1.0 otherwise.
 # Called by UltimateEffect._show_impact() at damage-application time.
 func get_damage_multiplier() -> float:
 	return DAMAGE_MULT_PARRY if _counter_succeeded else DAMAGE_MULT_HIT
@@ -59,19 +80,26 @@ func get_damage_multiplier() -> float:
 func cancel() -> void:
 	_window_gen += 1
 	_window_open = false
+	_fill = 0.0
 	_remove_prompt_ui()
 
 # ── Internal ──────────────────────────────────────────────────────────────────
+
+func _add_fill(amount: float) -> void:
+	_fill = minf(1.0, _fill + amount)
+	_refresh_parry_meter(_fill)
+	if _fill >= 1.0:
+		_close_window(true)
 
 func _open_window(defender_team: int) -> void:
 	_window_open = true
 	_window_timer = WINDOW_DURATION
 	_build_prompt_ui(defender_team)
 
-func _close_window(pressed: bool) -> void:
+func _close_window(success: bool) -> void:
 	_window_open = false
 	_remove_prompt_ui()
-	if pressed:
+	if success:
 		_counter_succeeded = true
 		_show_outcome("PARRIED!", Color(1.0, 0.88, 0.15, 1.0))
 
@@ -91,20 +119,21 @@ func _build_prompt_ui(defender_team: int) -> void:
 			else Color(1.0, 0.22, 0.12, 0.18)
 	var bg := ColorRect.new()
 	bg.color = tint
-	bg.size = Vector2(560, 196)
-	bg.position = Vector2(680, 762)   # centered: 960 - 280
+	bg.size = Vector2(560, 220)
+	bg.position = Vector2(680, 744)   # centered: 960 - 280
 	_prompt_root.add_child(bg)
 
 	var top_line := ColorRect.new()
 	top_line.color = Color(1.0, 0.85, 0.0, 0.92)
 	top_line.size = Vector2(560, 3)
-	top_line.position = Vector2(680, 762)
+	top_line.position = Vector2(680, 744)
 	_prompt_root.add_child(top_line)
 
+	# Header
 	var header := Label.new()
 	header.text = "COUNTER WINDOW!"
 	header.size = Vector2(560, 34)
-	header.position = Vector2(680, 768)
+	header.position = Vector2(680, 750)
 	header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	header.add_theme_font_size_override("font_size", 22)
 	header.add_theme_color_override("font_color", Color(1.0, 0.85, 0.0, 1.0))
@@ -112,46 +141,79 @@ func _build_prompt_ui(defender_team: int) -> void:
 	header.add_theme_constant_override("outline_size", 2)
 	_prompt_root.add_child(header)
 
-	# SPACEBAR key visual (outer frame + inner face)
-	var key_outer := ColorRect.new()
-	key_outer.color = Color(0.88, 0.88, 0.88, 1.0)
-	key_outer.size = Vector2(300, 58)
-	key_outer.position = Vector2(810, 808)   # centered: 960 - 150
-	_prompt_root.add_child(key_outer)
+	# Main instruction: heart + donate
+	var main_lbl := Label.new()
+	main_lbl.text = "❤️  กด HEART  หรือ  DONATE !"
+	main_lbl.size = Vector2(560, 42)
+	main_lbl.position = Vector2(680, 786)
+	main_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	main_lbl.add_theme_font_size_override("font_size", 28)
+	main_lbl.add_theme_color_override("font_color", Color(1.0, 0.5, 0.75, 1.0))
+	main_lbl.add_theme_color_override("font_outline_color", Color(0, 0, 0, 1))
+	main_lbl.add_theme_constant_override("outline_size", 2)
+	_prompt_root.add_child(main_lbl)
 
-	var key_inner := ColorRect.new()
-	key_inner.color = Color(0.72, 0.72, 0.72, 1.0)
-	key_inner.size = Vector2(292, 50)
-	key_inner.position = Vector2(814, 812)
-	_prompt_root.add_child(key_inner)
+	var sub_lbl := Label.new()
+	sub_lbl.size = Vector2(560, 24)
+	sub_lbl.position = Vector2(680, 826)
+	sub_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	sub_lbl.add_theme_font_size_override("font_size", 16)
+	sub_lbl.add_theme_color_override("font_color", Color(0.9, 0.9, 0.9, 0.95))
+	sub_lbl.add_theme_color_override("font_outline_color", Color(0, 0, 0, 1))
+	sub_lbl.add_theme_constant_override("outline_size", 1)
+	_prompt_root.add_child(sub_lbl)
 
-	var key_lbl := Label.new()
-	key_lbl.text = "SPACE BAR"
-	key_lbl.size = Vector2(300, 58)
-	key_lbl.position = Vector2(810, 808)
-	key_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	key_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	key_lbl.add_theme_font_size_override("font_size", 26)
-	key_lbl.add_theme_color_override("font_color", Color(0.08, 0.08, 0.08, 1.0))
-	_prompt_root.add_child(key_lbl)
+	# PARRY METER label
+	var meter_lbl := Label.new()
+	meter_lbl.text = "PARRY METER"
+	meter_lbl.size = Vector2(480, 18)
+	meter_lbl.position = Vector2(720, 854)
+	meter_lbl.add_theme_font_size_override("font_size", 11)
+	meter_lbl.add_theme_color_override("font_color", Color(0.6, 1.0, 0.7, 0.9))
+	_prompt_root.add_child(meter_lbl)
 
-	# Countdown bar (yellow → red)
+	# Parry meter bar background
+	var parry_bg := ColorRect.new()
+	parry_bg.color = Color(0.06, 0.06, 0.06, 0.92)
+	parry_bg.size = Vector2(480, 22)
+	parry_bg.position = Vector2(720, 870)
+	_prompt_root.add_child(parry_bg)
+
+	# Parry meter fill (starts empty, fills green → gold)
+	_parry_fill = ColorRect.new()
+	_parry_fill.color = Color(0.3, 1.0, 0.45, 1.0)
+	_parry_fill.size = Vector2(0.0, 22)
+	_parry_fill.position = Vector2(720, 870)
+	_prompt_root.add_child(_parry_fill)
+
+	# TIME label
+	var time_lbl := Label.new()
+	time_lbl.text = "TIME"
+	time_lbl.size = Vector2(480, 18)
+	time_lbl.position = Vector2(720, 896)
+	time_lbl.add_theme_font_size_override("font_size", 11)
+	time_lbl.add_theme_color_override("font_color", Color(1.0, 0.85, 0.3, 0.9))
+	_prompt_root.add_child(time_lbl)
+
+	# Countdown bar background
 	var bar_bg := ColorRect.new()
 	bar_bg.color = Color(0.06, 0.06, 0.06, 0.92)
-	bar_bg.size = Vector2(480, 20)
-	bar_bg.position = Vector2(720, 880)   # centered: 960 - 240
+	bar_bg.size = Vector2(480, 16)
+	bar_bg.position = Vector2(720, 912)
 	_prompt_root.add_child(bar_bg)
 
+	# Countdown fill
 	_countdown_fill = ColorRect.new()
 	_countdown_fill.color = Color(1.0, 0.85, 0.0, 1.0)
-	_countdown_fill.size = Vector2(480, 20)
-	_countdown_fill.position = Vector2(720, 880)
+	_countdown_fill.size = Vector2(480, 16)
+	_countdown_fill.position = Vector2(720, 912)
 	_prompt_root.add_child(_countdown_fill)
 
+	# Bottom instruction
 	var inst := Label.new()
-	inst.text = "PRESS TO COUNTER  —  70%% DAMAGE BLOCKED"
-	inst.size = Vector2(560, 24)
-	inst.position = Vector2(680, 906)
+	inst.text = "ครบหลอด = บล็อก 70%% ความเสียหาย"
+	inst.size = Vector2(560, 22)
+	inst.position = Vector2(680, 932)
 	inst.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	inst.add_theme_font_size_override("font_size", 13)
 	inst.add_theme_color_override("font_color", Color(0.85, 0.85, 0.85, 0.9))
@@ -162,6 +224,18 @@ func _build_prompt_ui(defender_team: int) -> void:
 	_prompt_root.modulate.a = 0.0
 	var t := _prompt_root.create_tween()
 	t.tween_property(_prompt_root, "modulate:a", 1.0, 0.25)
+
+func _refresh_parry_meter(ratio: float) -> void:
+	if not is_instance_valid(_parry_fill):
+		return
+	_parry_fill.size.x = 480.0 * ratio
+	# green → gold as meter fills
+	_parry_fill.color = Color(
+		lerpf(0.3, 1.0, ratio),
+		lerpf(1.0, 0.88, ratio),
+		lerpf(0.45, 0.1, ratio),
+		1.0
+	)
 
 func _refresh_countdown(ratio: float) -> void:
 	if not is_instance_valid(_countdown_fill):
@@ -179,6 +253,7 @@ func _remove_prompt_ui() -> void:
 		_prompt_canvas.queue_free()
 	_prompt_canvas = null
 	_countdown_fill = null
+	_parry_fill = null
 
 # ── Outcome text ─────────────────────────────────────────────────────────────
 

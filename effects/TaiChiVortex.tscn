@@ -1,0 +1,7 @@
+[gd_scene format=3 uid="uid://bhnsbv34x5fjs"]
+
+[ext_resource type="Script" uid="uid://b2ui4pu8bl1ox" path="res://effects/TaiChiVortex.gd" id="1_script"]
+
+[node name="TaiChiVortex" type="Node2D" unique_id=1542275232]
+z_index = 5
+script = ExtResource("1_script")

@@ -1,12 +1,12 @@
 extends Node2D
 
 const TEAM_COLOR: Dictionary = {
-	1: Color(0.05, 0.4, 1.0, 1.0),
-	2: Color(1.0, 0.12, 0.05, 1.0),
+	1: Color(0.0, 0.88, 1.0, 1.0),   # Wudang White — cyan
+	2: Color(0.65, 0.0, 0.9, 1.0),   # Demon Cult — purple
 }
 const TEAM_SHADOW_COLOR: Dictionary = {
-	1: Color(0.0, 0.3, 1.0, 0.6),
-	2: Color(1.0, 0.05, 0.0, 0.6),
+	1: Color(0.0, 0.65, 1.0, 0.6),   # cyan shadow
+	2: Color(0.5, 0.0, 0.7, 0.6),    # purple shadow
 }
 const MAX_HP: int = 1000  # Fallback only; runtime uses PlayerStats level-based HP
 const BASE_SCALE: float = 0.22
@@ -53,6 +53,13 @@ var _respawn_timer: float = 0.0
 var _countdown_label: Label = null
 var _boss_phase: bool = false
 var _stunned: bool = false
+var _is_dashing: bool = false  # set by dash skills; blocks damage and physics during dash
+var _personal_atk_mult: float = 1.0   # set by ATK buff skills (ChiGathering / BloodRage)
+var _atk_buff_stacks: int = 0         # ref-count so overlapping buffs don't cancel early
+var _lifesteal_active: bool = false   # set by DarkHunger; heal on each attack
+var _lifesteal_stacks: int = 0        # ref-count for overlapping lifesteal buffs
+var _private_ult_meter: float = 0.0   # 0.0–100.0; fires private ultimate at 100
+var _priv_ult_fired: bool = false      # prevent double-fire during trigger anim
 
 func _ready() -> void:
 	http_request.request_completed.connect(_on_request_completed)
@@ -93,6 +100,11 @@ func setup(p_username: String, p_team: int, avatar_url: String, p_arena: Node = 
 	lv_label.text = "Lv.%d" % _avatar_stats.current_level
 	_refresh_hp_bar()
 	_refresh_exp_bar()
+	_private_ult_meter = 0.0
+	_priv_ult_fired = false
+	if is_instance_valid(_circular_bars):
+		_circular_bars.set_team(_team)
+		_circular_bars.set_ult(0.0)
 
 	_float_speed = randf_range(0.55, 1.3)
 	_float_amp = randf_range(4.0, 8.0)
@@ -151,8 +163,49 @@ func knockback(force: Vector2) -> void:
 	# Redirect direction only — speed stays at _base_speed
 	_velocity = (_velocity + force * 0.5).normalized() * _base_speed
 
+func add_private_ult(percent: float) -> void:
+	if not _alive or _respawning or _priv_ult_fired:
+		return
+	_private_ult_meter = clampf(_private_ult_meter + percent, 0.0, 100.0)
+	if is_instance_valid(_circular_bars):
+		_circular_bars.set_ult(_private_ult_meter / 100.0)
+	if _private_ult_meter >= 100.0 and not _priv_ult_fired:
+		_fire_private_ultimate()
+
+func _fire_private_ultimate() -> void:
+	_priv_ult_fired = true
+	# Bar flash + reset
+	if is_instance_valid(_circular_bars):
+		_circular_bars.flash_ult_full()
+	# "ULTIMATE!" label above avatar
+	var lbl := Label.new()
+	lbl.text = "ULTIMATE!"
+	lbl.position = Vector2(-28, -46)
+	lbl.size = Vector2(56, 14)
+	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	lbl.add_theme_font_size_override("font_size", 9)
+	var col := Color(0.3, 1.0, 1.0, 1.0) if _team == 1 else Color(0.85, 0.3, 1.0, 1.0)
+	lbl.add_theme_color_override("font_color", col)
+	lbl.add_theme_color_override("font_outline_color", Color(0, 0, 0, 1))
+	lbl.add_theme_constant_override("outline_size", 1)
+	add_child(lbl)
+	var lbl_t := lbl.create_tween().set_parallel(true)
+	lbl_t.tween_property(lbl, "position:y", lbl.position.y - 18.0, 0.4)
+	lbl_t.tween_property(lbl, "modulate:a", 0.0, 0.4)
+	lbl_t.set_parallel(false)
+	lbl_t.tween_callback(lbl.queue_free)
+	# Spawn effect after short label delay
+	get_tree().create_timer(0.05).timeout.connect(func():
+		if is_instance_valid(self) and _alive and is_instance_valid(_arena_ref):
+			_arena_ref.spawn_private_ultimate(self)
+		_private_ult_meter = 0.0
+		_priv_ult_fired = false
+		if is_instance_valid(_circular_bars):
+			_circular_bars.set_ult(0.0)
+	)
+
 func take_damage(amount: int, killer_id: String = "") -> void:
-	if not _alive:
+	if not _alive or _is_dashing:
 		return
 	# Let active shields absorb damage first (innermost stack first)
 	var dmg := amount
@@ -160,13 +213,15 @@ func take_damage(amount: int, killer_id: String = "") -> void:
 		if dmg <= 0:
 			break
 		if child.is_in_group("shield_bubble") and child.has_method("absorb_damage"):
-			dmg = child.absorb_damage(dmg)
+			dmg = child.absorb_damage(dmg, killer_id)
 	if dmg <= 0:
 		return
 	_last_killer_id = killer_id
 	current_hp = maxi(0, current_hp - dmg)
 	_refresh_hp_bar()
 	_spawn_damage_number(dmg)
+	if not _respawning:
+		add_private_ult(3.0 + float(dmg) / 10.0)
 	if current_hp == 0:
 		die()
 
@@ -202,7 +257,7 @@ func _process(delta: float) -> void:
 		if _respawn_timer <= 0.0:
 			_finish_respawn()
 		return  # Frozen during respawn — no physics, no attack
-	if _zone_rect.size != Vector2.ZERO and not _boss_phase and not _stunned:
+	if _zone_rect.size != Vector2.ZERO and not _boss_phase and not _stunned and not _is_dashing:
 		_update_physics(delta)
 	if _alive and _arena_ref and (_arena_ref.game_active or _arena_ref.is_boss_phase):
 		if not _is_attacking and not _stunned:
@@ -229,9 +284,29 @@ func _update_physics(delta: float) -> void:
 	if _velocity.length_squared() > 0.0:
 		_velocity = _velocity.normalized() * _base_speed
 
+func _has_active_shield() -> bool:
+	for child in get_children():
+		if child.is_in_group("shield_bubble"):
+			return true
+	return false
+
 func _do_attack() -> void:
 	var enemy: Node = _arena_ref.get_nearest_enemy(global_position, _team)
 	if not enemy or not is_instance_valid(enemy):
+		# Support skills target self — can fire even without an enemy
+		var mode_now := str(_arena_ref.get("auto_attack_mode") if _arena_ref.get("auto_attack_mode") != null else "attack_t2")
+		const SUPPORT_SKILLS := ["shield_t1", "dash_t1", "buff_t1", "buff_t2"]
+		if mode_now in SUPPORT_SKILLS and not _arena_ref.is_boss_phase:
+			# Shield: skip if already shielded — wait for it to expire naturally
+			if mode_now == "shield_t1" and _has_active_shield():
+				_attack_timer = ATTACK_INTERVAL
+				return
+			_is_attacking = true
+			_arena_ref.spawn_skill(mode_now, _team, self, null)
+			get_tree().create_timer(0.5).timeout.connect(func():
+				if is_instance_valid(self): on_attack_done()
+			)
+			return
 		# No enemy — fire basic shot at zone center, score +1
 		_attack_timer = ATTACK_INTERVAL
 		var target_pos: Vector2 = _arena_ref.get_zone_center(3 - _team)
@@ -240,29 +315,47 @@ func _do_attack() -> void:
 		return
 
 	_is_attacking = true
-	var dmg_mult: float = _arena_ref.get_attack_mult(_team)
+	var dmg_mult: float = _arena_ref.get_attack_mult(_team) * _personal_atk_mult
 	var base_dmg: int = int(_avatar_stats.get_damage()) if _avatar_stats else 10
-	# During boss phase use basic attacks only (no chain/laser to avoid targeting allies)
-	var roll: int
+
 	if _arena_ref.is_boss_phase:
-		roll = 0
-	elif _arena_ref.debug_attack_mode >= 0:
-		roll = _arena_ref.debug_attack_mode
+		# Boss phase: plain basic attack so chain/AoE don't misfire on allies
+		_arena_ref.spawn_attack_effect(global_position, enemy.global_position, enemy,
+			on_attack_done, dmg_mult, player_id, base_dmg)
 	else:
-		roll = randi() % 6
-	match roll:
-		0:
-			_arena_ref.spawn_attack_effect(global_position, enemy.global_position, enemy, on_attack_done, dmg_mult, player_id, base_dmg)
-		1:
-			_arena_ref.spawn_laser_attack(self, enemy, on_attack_done, dmg_mult, base_dmg)
-		2:
-			_arena_ref.spawn_lightning_attack(self, enemy, _team, on_attack_done, dmg_mult, base_dmg)
-		3:
-			_arena_ref.spawn_shield_bubble(self, on_attack_done)
-		4:
-			_arena_ref.spawn_spikes_attack(self, _team, on_attack_done, dmg_mult, base_dmg)
-		5:
-			_arena_ref.spawn_stun_projectile_attack(self, enemy, on_attack_done, dmg_mult, base_dmg)
+		var mode := str(_arena_ref.get("auto_attack_mode") if _arena_ref.get("auto_attack_mode") != null else "attack_t2")
+		if mode == "rnd":
+			var pool := ["basic", "attack_t2", "attack_t3", "attack_t4a", "attack_t4b", "attack_t4c", "attack_t4d"]
+			mode = pool[randi() % pool.size()]
+		# Support skills target self — shield skips recast if already active
+		const SUPPORT_SKILLS := ["shield_t1", "dash_t1", "buff_t1", "buff_t2"]
+		if mode in SUPPORT_SKILLS:
+			if mode == "shield_t1" and _has_active_shield():
+				# Already shielded: fallback to basic attack while waiting
+				_arena_ref.spawn_attack_effect(global_position, enemy.global_position, enemy,
+					on_attack_done, dmg_mult, player_id, base_dmg)
+			else:
+				_arena_ref.spawn_skill(mode, _team, self, enemy)
+				get_tree().create_timer(0.5).timeout.connect(func():
+					if is_instance_valid(self): on_attack_done()
+				)
+		elif mode == "basic":
+			_arena_ref.spawn_attack_effect(global_position, enemy.global_position, enemy,
+				on_attack_done, dmg_mult, player_id, base_dmg)
+		else:
+			_arena_ref.spawn_skill(mode, _team, self, enemy)
+			get_tree().create_timer(0.8).timeout.connect(func():
+				if is_instance_valid(self): on_attack_done()
+			)
+
+	var est_dmg := maxi(1, int(float(base_dmg) * dmg_mult))
+	add_private_ult(2.0 + float(est_dmg) / 10.0)
+	if _lifesteal_active and is_instance_valid(enemy):
+		var heal_amt := maxi(1, int(float(est_dmg) * 0.20))
+		get_tree().create_timer(0.28).timeout.connect(func():
+			if is_instance_valid(self) and _alive and not _respawning:
+				heal(heal_amt)
+		)
 
 func on_attack_done() -> void:
 	if not _alive:
@@ -275,6 +368,10 @@ func on_attack_done() -> void:
 func _start_respawn() -> void:
 	_respawning = true
 	_velocity = Vector2.ZERO
+	_private_ult_meter = 0.0
+	_priv_ult_fired = false
+	if is_instance_valid(_circular_bars):
+		_circular_bars.set_ult(0.0)
 	# Remove all active shield layers on death
 	for child in get_children():
 		if child.is_in_group("shield_bubble"):

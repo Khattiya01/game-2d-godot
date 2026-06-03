@@ -80,7 +80,7 @@ func fire(effect_data: Dictionary) -> void:
 	)
 
 # Called by PlayerAvatar.take_damage() — absorbs damage, returns leftover
-func absorb_damage(incoming: int) -> int:
+func absorb_damage(incoming: int, _killer_id: String = "") -> int:
 	if _broken or _shield_hp <= 0:
 		return incoming
 	var absorbed := mini(incoming, _shield_hp)

@@ -1,0 +1,7 @@
+[gd_scene format=3 uid="uid://ncxu1vmr3ta3"]
+
+[ext_resource type="Script" uid="uid://whitedragonbeamscr001" path="res://effects/WhiteDragonBeam.gd" id="1_script"]
+
+[node name="WhiteDragonBeam" type="Node2D"]
+z_index = 5
+script = ExtResource("1_script")

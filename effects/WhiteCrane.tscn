@@ -1,0 +1,7 @@
+[gd_scene format=3 uid="uid://tjdtpnpet52s"]
+
+[ext_resource type="Script" uid="uid://whitecranescr001" path="res://effects/WhiteCrane.gd" id="1_script"]
+
+[node name="WhiteCrane" type="Node2D"]
+z_index = 5
+script = ExtResource("1_script")

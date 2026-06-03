@@ -1,0 +1,7 @@
+[gd_scene format=3 uid="uid://dpmkj260csbrk"]
+
+[ext_resource type="Script" uid="uid://chigatheringscr" path="res://effects/ChiGathering.gd" id="1_script"]
+
+[node name="ChiGathering" type="Node2D" unique_id=430000001]
+z_index = 4
+script = ExtResource("1_script")

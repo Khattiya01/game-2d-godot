@@ -1,0 +1,7 @@
+[gd_scene format=3 uid="uid://d1d80use33gup"]
+
+[ext_resource type="Script" uid="uid://whitelotusvelsc" path="res://effects/WhiteLotusVeil.gd" id="1_script"]
+
+[node name="WhiteLotusVeil" type="Node2D" unique_id=450000001]
+z_index = 6
+script = ExtResource("1_script")

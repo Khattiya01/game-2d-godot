@@ -1,5 +1,8 @@
 extends Node
 
+# ── Patch ─────────────────────────────────────────────────────────────────────
+const current_patch: String = "wudang_dark"  # Team A = Wudang (white/cyan), Team B = Demon Cult (black/purple)
+
 # ── State ─────────────────────────────────────────────────────────────────────
 enum GameState { WAITING, COUNTDOWN, PLAYING, GAME_OVER }
 var current_state: GameState = GameState.WAITING
@@ -19,10 +22,19 @@ var _like_accumulator: int = 0
 var _last_timer_second: int = -1
 
 const GIFT_TABLE: Dictionary = {
-	"rose":         { "score": 1,  "tier": "small",    "exp": 10,  "hp": 5,   "meter": 2   },
-	"ice_cream":    { "score": 3,  "tier": "medium",   "exp": 25,  "hp": 20,  "meter": 5   },
-	"rose_bouquet": { "score": 5,  "tier": "medium",   "exp": 50,  "hp": 50,  "meter": 8   },
-	"universe":     { "score": 10, "tier": "ultimate", "exp": 250, "hp": 150, "meter": 100 },
+	# 1B gifts — Tier 1 skills
+	"rose":         { "score": 1,  "tier": "small",    "exp": 10,  "hp": 5,   "meter": 2,   "skill_type": "attack_t2" },
+	"donut":        { "score": 1,  "tier": "small",    "exp": 10,  "hp": 0,   "meter": 2,   "skill_type": "shield_t1" },
+	"gift_box":     { "score": 1,  "tier": "small",    "exp": 10,  "hp": 0,   "meter": 2,   "skill_type": "dash_t1"   },
+	"panda":        { "score": 1,  "tier": "small",    "exp": 10,  "hp": 0,   "meter": 2,   "skill_type": "buff_t1"   },
+	# 5B — attack T3 + team buff T2
+	"ice_cream":    { "score": 3,  "tier": "medium",   "exp": 25,  "hp": 20,  "meter": 5,   "skill_type": "attack_t3", "skill_type_2": "buff_t2" },
+	# 10B — attack T4a AoE
+	"rose_bouquet": { "score": 5,  "tier": "medium",   "exp": 50,  "hp": 50,  "meter": 8,   "skill_type": "attack_t4a" },
+	# 50B+ — beam T4c + cinematic ultimate charge
+	"universe":     { "score": 10, "tier": "ultimate", "exp": 250, "hp": 150, "meter": 100, "skill_type": "attack_t4c" },
+	# 100B+ — nova T4d (donation_value > 100 also routes here)
+	"whale_gift":   { "score": 20, "tier": "ultimate", "exp": 500, "hp": 200, "meter": 0,   "skill_type": "attack_t4d" },
 }
 
 # ── Signals ───────────────────────────────────────────────────────────────────
@@ -115,6 +127,8 @@ func on_chat_received(data: Dictionary) -> void:
 
 # Processes a gift event; emits trigger_effect_requested and updates score.
 # Expected keys: gift (name), team ("team_a"/"team_b"), username, avatar
+# Optional: donation_value (float, baht) — overrides skill tier when > 10B:
+#   >10–50B → attack_t4b,  >50–100B → attack_t4c,  >100B → attack_t4d
 func on_gift_received(data: Dictionary) -> void:
 	if current_state != GameState.PLAYING:
 		return
@@ -125,24 +139,40 @@ func on_gift_received(data: Dictionary) -> void:
 		return
 	var team := str(data.get("team", ""))
 	var username := str(data.get("username", ""))
+
+	# Resolve skill_type — donation_value overrides gift-based routing for high-value gifts
+	var skill_type: String = entry.get("skill_type", "")
+	var skill_type_2: String = entry.get("skill_type_2", "")
+	var donation_value: float = float(data.get("donation_value", -1.0))
+	if donation_value > 10.0:
+		skill_type_2 = ""
+		if donation_value <= 50.0:
+			skill_type = "attack_t4b"
+		elif donation_value <= 100.0:
+			skill_type = "attack_t4c"
+		else:
+			skill_type = "attack_t4d"
+
 	# Award EXP to the donor's avatar
 	if username != "" and entry.get("exp", 0) > 0:
 		PlayerStats.add_exp(username, entry["exp"], "donate")
 	trigger_effect_requested.emit({
-		"gift": gift_name,
-		"tier": entry["tier"],
-		"team": team,
-		"user": username,
-		"hp":   entry.get("hp", 0),
+		"gift":           gift_name,
+		"tier":           entry["tier"],
+		"team":           team,
+		"user":           username,
+		"hp":             entry.get("hp", 0),
+		"skill_type":     skill_type,
+		"skill_type_2":   skill_type_2,
+		"donation_value": donation_value,
 	})
 	add_score(team, entry["score"])
 	ComboTracker.add_donation(team)
 	var meter_pct: float = float(entry.get("meter", 0))
 	if meter_pct > 0.0:
 		UltimateCharger.add_charge(team, meter_pct)
-	print("[GameManager] gift=%-12s  tier=%-8s  team=%s  +%d score  +%d EXP  +%d HP" % [
-		gift_name, entry["tier"], team, entry["score"],
-		entry.get("exp", 0), entry.get("hp", 0)
+	print("[GameManager] gift=%-12s  tier=%-8s  skill=%-12s  team=%s  +%d score  +%d EXP" % [
+		gift_name, entry["tier"], skill_type, team, entry["score"], entry.get("exp", 0)
 	])
 
 # Accumulates likes; emits a micro effect for every 10 likes received.

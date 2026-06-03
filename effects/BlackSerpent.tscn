@@ -1,0 +1,7 @@
+[gd_scene format=3 uid="uid://6uiebdehjb0k"]
+
+[ext_resource type="Script" uid="uid://blackserpentscr001" path="res://effects/BlackSerpent.gd" id="1_script"]
+
+[node name="BlackSerpent" type="Node2D"]
+z_index = 5
+script = ExtResource("1_script")

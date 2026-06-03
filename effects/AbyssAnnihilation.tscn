@@ -1,0 +1,7 @@
+[gd_scene format=3 uid="uid://ceys2ewv4v233"]
+
+[ext_resource type="Script" uid="uid://abyssannihilationscr001" path="res://effects/AbyssAnnihilation.gd" id="1_script"]
+
+[node name="AbyssAnnihilation" type="Node2D"]
+z_index = 5
+script = ExtResource("1_script")

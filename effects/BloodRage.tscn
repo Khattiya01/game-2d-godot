@@ -1,0 +1,7 @@
+[gd_scene format=3 uid="uid://cklivwncgngnw"]
+
+[ext_resource type="Script" uid="uid://bloodragescr001" path="res://effects/BloodRage.gd" id="1_script"]
+
+[node name="BloodRage" type="Node2D" unique_id=440000001]
+z_index = 4
+script = ExtResource("1_script")

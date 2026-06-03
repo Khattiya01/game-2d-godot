@@ -11,6 +11,28 @@ const ShieldBubbleScene := preload("res://effects/ShieldBubble.tscn")
 const SpikeExplosionScene := preload("res://effects/SpikeExplosion.tscn")
 const StunProjectileScene  := preload("res://effects/StunProjectile.tscn")
 const ElectricStormScene   := preload("res://effects/ElectricStorm.tscn")
+const CloudStepScene       := preload("res://effects/CloudStep.tscn")
+const ShadowBlinkScene     := preload("res://effects/ShadowBlink.tscn")
+const ChiShieldScene       := preload("res://effects/ChiShield.tscn")
+const DemonShellScene      := preload("res://effects/DemonShell.tscn")
+const ChiGatheringScene    := preload("res://effects/ChiGathering.tscn")
+const BloodRageScene       := preload("res://effects/BloodRage.tscn")
+const WhiteLotusVeilScene  := preload("res://effects/WhiteLotusVeil.tscn")
+const DarkHungerScene      := preload("res://effects/DarkHunger.tscn")
+const SwordQiScene            := preload("res://effects/SwordQi.tscn")
+const DarkNeedleScene         := preload("res://effects/DarkNeedle.tscn")
+const WhiteCraneScene         := preload("res://effects/WhiteCrane.tscn")
+const TigerClawScene          := preload("res://effects/TigerClaw.tscn")
+const TaiChiVortexScene       := preload("res://effects/TaiChiVortex.tscn")
+const DarkTornadoScene        := preload("res://effects/DarkTornado.tscn")
+const HeavenPalmScene         := preload("res://effects/HeavenPalm.tscn")
+const ShadowEruptionScene     := preload("res://effects/ShadowEruption.tscn")
+const WhiteDragonBeamScene    := preload("res://effects/WhiteDragonBeam.tscn")
+const BlackSerpentScene       := preload("res://effects/BlackSerpent.tscn")
+const TranscendenceScene      := preload("res://effects/Transcendence.tscn")
+const AbyssAnnihilationScene  := preload("res://effects/AbyssAnnihilation.tscn")
+const DragonSoulAscensionScene := preload("res://effects/DragonSoulAscension.tscn")
+const DemonKingDescentScene    := preload("res://effects/DemonKingDescent.tscn")
 
 @export var zone_a: Rect2 = Rect2(30, 180, 900, 860)
 @export var zone_b: Rect2 = Rect2(990, 180, 900, 860)
@@ -26,7 +48,7 @@ var score_b: int = 0
 var _stream_elapsed: float = 0.0
 var game_active: bool = false
 var is_boss_phase: bool = false
-var debug_attack_mode: int = -1  # -1=random, 0=basic, 1=laser, 2=chain
+var auto_attack_mode: String = "attack_t2"  # avatar autonomous attack; see DebugPanel selector
 
 var _avatars_a: Array[Node] = []
 var _avatars_b: Array[Node] = []
@@ -280,6 +302,15 @@ func spawn_electric_storm() -> void:
 	add_child(effect)
 	effect.fire({"arena": self})
 
+func spawn_private_ultimate(avatar: Node) -> void:
+	if not is_instance_valid(avatar): return
+	var team: int = int(avatar.get("_team") if avatar.get("_team") != null else 1)
+	var scene := DragonSoulAscensionScene if team == 1 else DemonKingDescentScene
+	var eff: Node2D = scene.instantiate()
+	game_layer.add_child(eff)
+	eff.fire({"avatar": avatar, "arena": self})
+	print("[Arena] Private ultimate fired — team=%d  player=%s" % [team, avatar.get("player_id")])
+
 func spawn_stun_projectile_attack(attacker: Node, target: Node, on_complete: Callable, dmg_mult: float = 1.0, base_dmg: int = 10) -> void:
 	var effect: Node2D = StunProjectileScene.instantiate()
 	game_layer.add_child(effect)
@@ -319,6 +350,7 @@ func on_chat(username: String, message: String, avatar_url: String) -> void:
 		"2": spawn_avatar(username, 2, avatar_url)
 
 func on_like(username: String, _count: int = 1) -> void:
+	CounterUltimate.add_like_parry()
 	var effect: Node2D = MicroEffectScene.instantiate()
 	game_layer.add_child(effect)
 	# Spawn micro effect at avatar position if found, otherwise random zone
@@ -339,6 +371,7 @@ func on_gift(username: String, gift_name: String, avatar_url: String, from_team:
 	if gift_name.to_lower() == "like":
 		on_like(username)
 		return
+	CounterUltimate.add_donation_parry(gift_name)
 	GameManager.on_gift_received({
 		"gift":     gift_name,
 		"team":     team_str,
@@ -411,16 +444,143 @@ func _on_trigger_effect_requested(data: Dictionary) -> void:
 	var tier := str(data.get("tier", ""))
 	var team_str := str(data.get("team", ""))
 	var team_int := 1 if team_str == "team_a" else 2
-	match tier:
-		"micro":
-			on_like(str(data.get("user", "")), 1)
-		"small", "medium":
-			trigger_gift_attack(team_int)
-		# "ultimate" tier is intentionally absent: UltimateCharger fires it via meter system
-	# Apply HP restore from donation (team-wide)
+	var skill_type := str(data.get("skill_type", ""))
+
+	if tier == "micro":
+		on_like(str(data.get("user", "")), 1)
+		return
+
+	if skill_type != "":
+		var attacker: Node = _find_avatar_by_id(str(data.get("user", "")))
+		if not is_instance_valid(attacker):
+			attacker = _get_random_alive_avatar(team_int)
+		var target: Node = null
+		if is_instance_valid(attacker):
+			target = get_nearest_enemy(attacker.global_position, team_int)
+		spawn_skill(skill_type, team_int, attacker, target)
+		var skill2 := str(data.get("skill_type_2", ""))
+		if skill2 != "":
+			spawn_skill(skill2, team_int, attacker, target)
+	elif tier in ["small", "medium"]:
+		trigger_gift_attack(team_int)
+	# "ultimate" tier: UltimateCharger fires the cinematic via meter system
+
 	var hp: int = int(data.get("hp", 0))
-	if hp > 0 and team_str != "":
+	if hp > 0:
 		heal_team(team_int, hp)
+
+# Dispatches a named skill to the correct effect for the given team.
+# Unimplemented skills fall back to placeholder visuals until Phase 9-C/D/E/F.
+func spawn_skill(skill_type: String, team: int, attacker: Node = null, target: Node = null) -> void:
+	match skill_type:
+		"dash_t1":
+			if is_instance_valid(attacker):
+				var scene := CloudStepScene if team == 1 else ShadowBlinkScene
+				var effect: Node2D = scene.instantiate()
+				game_layer.add_child(effect)
+				effect.fire({"avatar": attacker, "arena": self})
+			else:
+				print("[Arena] spawn_skill: dash_t1 — no avatar to dash")
+		"shield_t1":
+			if is_instance_valid(attacker):
+				var scene := ChiShieldScene if team == 1 else DemonShellScene
+				var effect: Node2D = scene.instantiate()
+				attacker.add_child(effect)
+				effect.fire({"avatar": attacker})
+			else:
+				print("[Arena] spawn_skill: shield_t1 — no attacker, skipped")
+		"buff_t1":
+			if is_instance_valid(attacker):
+				var scene := ChiGatheringScene if team == 1 else BloodRageScene
+				var effect: Node2D = scene.instantiate()
+				attacker.add_child(effect)
+				effect.fire({"avatar": attacker, "arena": self})
+			else:
+				print("[Arena] spawn_skill: buff_t1 — no attacker")
+		"buff_t2":
+			if is_instance_valid(attacker):
+				var scene := WhiteLotusVeilScene if team == 1 else DarkHungerScene
+				var effect: Node2D = scene.instantiate()
+				attacker.add_child(effect)
+				effect.fire({"avatar": attacker, "team": team, "arena": self})
+			else:
+				heal_team(team, 15)
+		"attack_t2":
+			var scene_t2 := SwordQiScene if team == 1 else DarkNeedleScene
+			var eff_t2: Node2D = scene_t2.instantiate()
+			game_layer.add_child(eff_t2)
+			eff_t2.fire({"attacker": attacker, "target": target, "arena": self,
+				"damage_mult": _get_avatar_dmg_mult(attacker, team),
+				"base_dmg": _get_avatar_base_dmg(attacker)})
+		"attack_t3":
+			var scene_t3 := WhiteCraneScene if team == 1 else TigerClawScene
+			var eff_t3: Node2D = scene_t3.instantiate()
+			game_layer.add_child(eff_t3)
+			eff_t3.fire({"attacker": attacker, "target": target, "arena": self,
+				"damage_mult": _get_avatar_dmg_mult(attacker, team),
+				"base_dmg": _get_avatar_base_dmg(attacker)})
+		"attack_t4a":
+			var scene_t4a := TaiChiVortexScene if team == 1 else DarkTornadoScene
+			var eff_t4a: Node2D = scene_t4a.instantiate()
+			game_layer.add_child(eff_t4a)
+			eff_t4a.fire({"attacker": attacker, "target": target, "arena": self,
+				"damage_mult": _get_avatar_dmg_mult(attacker, team),
+				"base_dmg": _get_avatar_base_dmg(attacker)})
+		"attack_t4b":
+			var scene_t4b := HeavenPalmScene if team == 1 else ShadowEruptionScene
+			var eff_t4b: Node2D = scene_t4b.instantiate()
+			game_layer.add_child(eff_t4b)
+			eff_t4b.fire({"attacker": attacker, "target": target, "arena": self,
+				"damage_mult": _get_avatar_dmg_mult(attacker, team),
+				"base_dmg": _get_avatar_base_dmg(attacker)})
+		"attack_t4c":
+			var scene_t4c := WhiteDragonBeamScene if team == 1 else BlackSerpentScene
+			var eff_t4c: Node2D = scene_t4c.instantiate()
+			game_layer.add_child(eff_t4c)
+			eff_t4c.fire({"attacker": attacker, "target": target, "arena": self,
+				"damage_mult": _get_avatar_dmg_mult(attacker, team),
+				"base_dmg": _get_avatar_base_dmg(attacker)})
+		"attack_t4d":
+			var scene_t4d := TranscendenceScene if team == 1 else AbyssAnnihilationScene
+			var eff_t4d: Node2D = scene_t4d.instantiate()
+			game_layer.add_child(eff_t4d)
+			eff_t4d.fire({"attacker": attacker, "target": target, "arena": self,
+				"damage_mult": _get_avatar_dmg_mult(attacker, team),
+				"base_dmg": _get_avatar_base_dmg(attacker)})
+			# T4d landing grants +15% private ult meter to attacker
+			if is_instance_valid(attacker) and attacker.has_method("add_private_ult"):
+				attacker.add_private_ult(15.0)
+		_:
+			push_warning("[Arena] spawn_skill — unknown skill_type: '%s'" % skill_type)
+			trigger_gift_attack(team)
+
+func _get_avatar_base_dmg(avatar: Node) -> int:
+	if not is_instance_valid(avatar): return 10
+	var pid = avatar.get("player_id")
+	if pid == null: return 10
+	return PlayerStats.get_damage(PlayerStats.get_level(str(pid)))
+
+func _get_avatar_dmg_mult(avatar: Node, team_int: int) -> float:
+	var personal := 1.0
+	if is_instance_valid(avatar):
+		var v = avatar.get("_personal_atk_mult")
+		if v != null: personal = float(v)
+	return personal * get_attack_mult(team_int)
+
+func debug_spawn_skill(skill_type: String, team: int) -> void:
+	var av := _get_random_alive_avatar(team)
+	var target := _get_random_alive_avatar(3 - team)
+	spawn_skill(skill_type, team, av, target)
+
+func _get_random_alive_avatar(team: int) -> Node:
+	var list := _avatars_a if team == 1 else _avatars_b
+	var alive: Array = []
+	for av in list:
+		if is_instance_valid(av) and av.get("_alive") and not av.get("_respawning"):
+			alive.append(av)
+	if alive.is_empty():
+		return null
+	return alive[randi() % alive.size()]
 
 # Returns the first avatar node matching player_id across both teams.
 func _find_avatar_by_id(pid: String) -> Node:

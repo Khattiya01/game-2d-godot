@@ -1,0 +1,7 @@
+[gd_scene format=3 uid="uid://u3aixjncwe7y"]
+
+[ext_resource type="Script" uid="uid://transcendencescr001" path="res://effects/Transcendence.gd" id="1_script"]
+
+[node name="Transcendence" type="Node2D"]
+z_index = 5
+script = ExtResource("1_script")
